@@ -62,6 +62,14 @@
   .msg.ok{color:var(--green)} .msg.err{color:var(--red)}
   .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
   .bar>span{display:block;height:100%;background:var(--accent)}
+  #curveEditor{border:1px solid var(--line);border-radius:6px;background:#06090d;
+    cursor:crosshair;width:100%;max-width:1100px;margin-top:4px;touch-action:none}
+  .curvelegend{display:flex;gap:18px;align-items:center;color:var(--dim);
+    font-size:12px;margin-top:6px}
+  .curvelegend i.ln{display:inline-block;width:20px;height:0;border-top:3px solid;
+    vertical-align:middle;margin-right:6px}
+  .curvelegend i.ln.actual{border-color:#8b97a6}
+  .curvelegend i.ln.edit{border-color:#3b82f6}
 </style>
 </head>
 <body>
@@ -116,8 +124,13 @@
       <div class="formgrid" id="cfgForm"></div>
       <label>Selected ASNs <input id="asnSearch" placeholder="filter…"></label>
       <div class="asnbox" id="asnBox"></div>
-      <label>curve.anchors (24 comma-separated values)</label>
-      <input id="anchors">
+      <label>Traffic curve — drag any of the 24 hourly anchors</label>
+      <canvas id="curveEditor" width="1100" height="240"></canvas>
+      <div class="curvelegend">
+        <span><i class="ln actual"></i> applied (production)</span>
+        <span><i class="ln edit"></i> pending edit</span>
+        <button id="btnCurveReset" type="button">Reset edits</button>
+      </div>
       <div class="row" style="margin-top:12px">
         <button id="btnApply">Apply config</button>
         <span class="msg" id="cfgMsg"></span>
@@ -360,8 +373,77 @@ function fillForm(){
     const el=document.querySelector(`[data-path="${p}"]`);
     if(el) el.value = dig(CFG,p);
   });
-  $("anchors").value = (CFG.curve.anchors||[]).join(",");
+  curveActual = (CFG.curve.anchors||[]).slice();
+  curveEdit   = curveActual.slice();
+  curveYMax   = Math.max(2.5, Number(CFG.curve.max)||2.5);
+  drawCurve();
 }
+
+/* ---- interactive 24-hour curve editor ----
+   Two polylines share the canvas: the grey line is the applied (production)
+   curve, the blue line is the pending edit whose anchors are draggable. On
+   Apply the edit is sent, becomes production, and the two lines coincide. */
+const CV = $("curveEditor");
+let curveActual = new Array(24).fill(0);
+let curveEdit   = new Array(24).fill(0);
+let curveYMax = 2.5, dragIdx = -1;
+const CVPAD = {l:42, r:14, t:14, b:26};
+
+function cvPlot(){ return {w:CV.width-CVPAD.l-CVPAD.r, h:CV.height-CVPAD.t-CVPAD.b}; }
+function cvX(i){ return CVPAD.l + i/23 * cvPlot().w; }
+function cvY(v){ return CVPAD.t + (1 - v/curveYMax) * cvPlot().h; }
+function cvValFromY(y){
+  const v = curveYMax * (1 - (y-CVPAD.t)/cvPlot().h);
+  return Math.max(0, Math.min(curveYMax, Math.round(v*100)/100));
+}
+function cvPoly(x, arr, col, handles){
+  x.strokeStyle=col; x.lineWidth=2; x.beginPath();
+  arr.forEach((v,i)=>{ const px=cvX(i),py=cvY(v); i?x.lineTo(px,py):x.moveTo(px,py); });
+  x.stroke();
+  if(handles){
+    x.fillStyle=col;
+    arr.forEach((v,i)=>{ x.beginPath(); x.arc(cvX(i),cvY(v),4,0,2*Math.PI); x.fill(); });
+  }
+}
+function drawCurve(){
+  const x=CV.getContext("2d"), W=CV.width, H=CV.height, p=cvPlot();
+  x.clearRect(0,0,W,H);
+  x.strokeStyle="#2a3340"; x.fillStyle="#8b97a6"; x.font="10px sans-serif";
+  for(let g=0;g<=4;g++){
+    const y=CVPAD.t + g/4*p.h;
+    x.beginPath(); x.moveTo(CVPAD.l,y); x.lineTo(W-CVPAD.r,y); x.stroke();
+    x.fillText((curveYMax*(1-g/4)).toFixed(1), 8, y+3);
+  }
+  for(let h=0;h<24;h+=3) x.fillText((""+h).padStart(2,"0"), cvX(h)-6, H-8);
+  cvPoly(x, curveActual, "#8b97a6", false);
+  cvPoly(x, curveEdit,   "#3b82f6", true);
+}
+function cvMouse(e){
+  const r=CV.getBoundingClientRect();
+  return {x:(e.clientX-r.left)*(CV.width/r.width),
+          y:(e.clientY-r.top)*(CV.height/r.height)};
+}
+function cvPick(m){
+  let best=0, bd=1e9;
+  for(let i=0;i<24;i++){
+    const d=Math.hypot(m.x-cvX(i), m.y-cvY(curveEdit[i]));
+    if(d<bd){ bd=d; best=i; }
+  }
+  // a handle hit wins; otherwise grab the anchor nearest in x.
+  return bd<=16 ? best
+    : Math.max(0, Math.min(23, Math.round((m.x-CVPAD.l)/cvPlot().w*23)));
+}
+CV.addEventListener("mousedown", e=>{
+  e.preventDefault();
+  const m=cvMouse(e); dragIdx=cvPick(m);
+  curveEdit[dragIdx]=cvValFromY(m.y); drawCurve();
+});
+window.addEventListener("mousemove", e=>{
+  if(dragIdx<0) return;
+  curveEdit[dragIdx]=cvValFromY(cvMouse(e).y); drawCurve();
+});
+window.addEventListener("mouseup", ()=>{ dragIdx=-1; });
+$("btnCurveReset").onclick = ()=>{ curveEdit=curveActual.slice(); drawCurve(); };
 function loadConfig(){
   return api("/api/config").then(c=>{ CFG=c; fillForm(); renderASNs(); });
 }
@@ -390,10 +472,12 @@ $("btnApply").onclick = ()=>{
   });
   CFG.geoip.selected_asns = [...$("asnBox").querySelectorAll("input:checked")]
     .map(i=>Number(i.value));
-  const anc = $("anchors").value.split(",").map(Number);
-  if(anc.length===24 && anc.every(n=>!isNaN(n))) CFG.curve.anchors=anc;
+  CFG.curve.anchors = curveEdit.slice();
   api("/api/config",{method:"PUT",body:JSON.stringify(CFG)}).then(j=>{
     msg.className="msg ok"; msg.textContent = j.change ? "applied: "+j.change : "applied (no change)";
+    curveActual = curveEdit.slice();   // the pending edit is now production
+    curveYMax = Math.max(2.5, Number(CFG.curve.max)||2.5);
+    drawCurve();                        // both lines now coincide
     loadAudit();
   }).catch(e=>{ msg.className="msg err"; msg.textContent=e.message; });
 };
