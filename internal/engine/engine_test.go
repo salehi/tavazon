@@ -11,13 +11,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salehi/tavazon/internal/config"
-	"github.com/salehi/tavazon/internal/metering"
-	"github.com/salehi/tavazon/internal/metrics"
-	"github.com/salehi/tavazon/internal/netstat"
-	"github.com/salehi/tavazon/internal/schedule"
-	"github.com/salehi/tavazon/internal/state"
-	"github.com/salehi/tavazon/internal/sysstat"
+	"namizungo/internal/config"
+	"namizungo/internal/metering"
+	"namizungo/internal/metrics"
+	"namizungo/internal/netstat"
+	"namizungo/internal/schedule"
+	"namizungo/internal/state"
+	"namizungo/internal/sysstat"
 )
 
 // TestMain shortens the Stopped poll interval so loop tests run quickly.

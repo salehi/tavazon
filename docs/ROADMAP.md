@@ -17,7 +17,7 @@
 
 Stand up the repository skeleton so every later phase has somewhere to land.
 
-- `go.mod` — `module github.com/salehi/tavazon`, `go 1.22`, single `require`
+- `go.mod` — `module namizungo`, `go 1.22`, single `require`
   (`maxminddb-golang`); `go.sum`.
 - `vendor/` — `go mod vendor` (run in the toolchain container), committed, so builds
   are offline.

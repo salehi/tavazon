@@ -11,10 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/salehi/tavazon/internal/config"
-	"github.com/salehi/tavazon/internal/metering"
-	"github.com/salehi/tavazon/internal/metrics"
-	"github.com/salehi/tavazon/internal/targets"
+	"namizungo/internal/config"
+	"namizungo/internal/metering"
+	"namizungo/internal/metrics"
+	"namizungo/internal/targets"
 )
 
 // Uploader manufactures junk UDP traffic with a bounded worker pool.

@@ -8,8 +8,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/salehi/tavazon/internal/config"
-	"github.com/salehi/tavazon/internal/geoip"
+	"namizungo/internal/config"
+	"namizungo/internal/geoip"
 )
 
 type asnPool struct {

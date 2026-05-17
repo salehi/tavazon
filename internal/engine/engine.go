@@ -13,14 +13,14 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/salehi/tavazon/internal/config"
-	"github.com/salehi/tavazon/internal/logging"
-	"github.com/salehi/tavazon/internal/metering"
-	"github.com/salehi/tavazon/internal/metrics"
-	"github.com/salehi/tavazon/internal/netstat"
-	"github.com/salehi/tavazon/internal/schedule"
-	"github.com/salehi/tavazon/internal/state"
-	"github.com/salehi/tavazon/internal/sysstat"
+	"namizungo/internal/config"
+	"namizungo/internal/logging"
+	"namizungo/internal/metering"
+	"namizungo/internal/metrics"
+	"namizungo/internal/netstat"
+	"namizungo/internal/schedule"
+	"namizungo/internal/state"
+	"namizungo/internal/sysstat"
 )
 
 // bytesPerMbit converts a link speed in Mbit/s to bytes/s (1 Mbit = 1e6 bit).

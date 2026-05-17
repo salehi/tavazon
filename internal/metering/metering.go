@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/salehi/tavazon/internal/config"
+	"namizungo/internal/config"
 )
 
 // bucketDuration is the 5-minute sampling window used for billing.

@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salehi/tavazon/internal/config"
-	"github.com/salehi/tavazon/internal/geoip"
-	"github.com/salehi/tavazon/internal/metering"
-	"github.com/salehi/tavazon/internal/metrics"
-	"github.com/salehi/tavazon/internal/targets"
+	"namizungo/internal/config"
+	"namizungo/internal/geoip"
+	"namizungo/internal/metering"
+	"namizungo/internal/metrics"
+	"namizungo/internal/targets"
 )
 
 func discardLogger() *slog.Logger {

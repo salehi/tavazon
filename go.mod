@@ -1,4 +1,4 @@
-module github.com/salehi/tavazon
+module namizungo
 
 go 1.22
 

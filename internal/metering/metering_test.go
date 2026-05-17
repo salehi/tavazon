@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salehi/tavazon/internal/config"
+	"namizungo/internal/config"
 )
 
 func openStore(t *testing.T) *Store {
