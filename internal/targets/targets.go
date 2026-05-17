@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net"
+	"sync"
 
 	"github.com/salehi/tavazon/internal/config"
 	"github.com/salehi/tavazon/internal/geoip"
@@ -18,8 +19,9 @@ type asnPool struct {
 }
 
 // Targets generates random destination IP/port pairs spread across the
-// operator's selected ASNs. It is not safe for concurrent use.
+// operator's selected ASNs. RandomTarget is safe for concurrent use.
 type Targets struct {
+	mu          sync.Mutex
 	pools       []asnPool
 	totalWeight uint64
 	cfg         config.TargetsConfig
@@ -62,6 +64,8 @@ func (t *Targets) RandomTarget() (ip net.IP, port int, asn uint32) {
 	if len(t.pools) == 0 {
 		return nil, 0, 0
 	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	pool := t.pickPool()
 	prefix := pickPrefix(pool, t.rng)
 	ip = randomHost(prefix, t.rng)
