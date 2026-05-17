@@ -1,0 +1,15 @@
+# Build output
+/tavazon
+/tavazon-*
+
+# MaxMind GeoLite2 databases — operator-supplied, never redistributed (RED_LINES X12)
+*.mmdb
+
+# Runtime config & data (config.example.json IS committed; config.json is local)
+/config.json
+/data/state.json
+/data/metering/
+*.log
+
+# Local Claude Code settings
+.claude/settings.local.json
