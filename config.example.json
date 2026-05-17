@@ -1,0 +1,79 @@
+{
+  "general": {
+    "interval_min": "5s",
+    "interval_max": "30s",
+    "running": true
+  },
+  "dev": {
+    "enabled": false,
+    "target": "192.168.1.1",
+    "workers": 4
+  },
+  "target": {
+    "mode": "ratio",
+    "ratio": {
+      "multiplier": 8,
+      "jitter": 0.3,
+      "min_deficit_bytes": 1073741824
+    },
+    "volume": {
+      "bytes": 1073741824,
+      "window": "24h"
+    }
+  },
+  "network": {
+    "interface": "",
+    "link_capacity_mbit": 0
+  },
+  "geoip": {
+    "asn_db": "maxmind_files/GeoLite2-ASN.mmdb",
+    "country_db": "maxmind_files/GeoLite2-Country.mmdb",
+    "picker_country": "IR",
+    "selected_asns": []
+  },
+  "uploader": {
+    "threads_coefficient": 3,
+    "speed_coefficient": 1,
+    "base_rate_bps": 524288,
+    "cycle_budget_fraction": 0.3,
+    "packet_gap_max": "10ms",
+    "max_workers": 300,
+    "max_ramp": 20,
+    "min_datagram": 64,
+    "max_datagram": 1472
+  },
+  "curve": {
+    "anchors": [0.6, 0.4, 0.3, 0.2, 0.05, 0.05, 0.2, 0.6, 1.0, 1.2, 1.3, 1.4,
+                1.3, 1.35, 1.5, 1.45, 1.3, 1.45, 1.7, 1.9, 2.0, 1.5, 1.1, 0.8],
+    "max": 2.5,
+    "wander_strength": 0.15,
+    "wander_reversion": "30m"
+  },
+  "targets": {
+    "port_min": 1024,
+    "port_max": 65535,
+    "cache_ttl_min": "10m",
+    "cache_ttl_max": "100m"
+  },
+  "state": {
+    "file": "data/state.json",
+    "save_interval": "30s"
+  },
+  "metering": {
+    "dir": "data/metering",
+    "retention_5min": "9000h",
+    "billing_window": "month",
+    "percentile": 95
+  },
+  "web": {
+    "enabled": true,
+    "listen": "127.0.0.1:8080",
+    "auth_token": ""
+  },
+  "log": {
+    "file": "data/tavazon.log",
+    "level": "info",
+    "max_size_mb": 10,
+    "max_backups": 3
+  }
+}

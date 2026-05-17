@@ -1,0 +1,13 @@
+services:
+  tavazon:
+    build: .
+    image: salehi/tavazon:latest
+    restart: always
+    network_mode: host          # needs the host's real NIC counters
+    volumes:
+      - ./data:/data                       # config, state, metering
+      - ./maxmind_files:/maxmind_files:ro  # GeoLite2 .mmdb databases (read-only)
+      - ./config.json:/config.json
+    environment:
+      - TAVAZON_TARGET_RATIO_MULTIPLIER=8
+      - TAVAZON_WEB_LISTEN=127.0.0.1:8080

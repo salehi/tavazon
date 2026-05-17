@@ -16,8 +16,8 @@ The Phase 0 `Dockerfile` was a skeleton; confirm against the real build:
 
 - build stage: `CGO_ENABLED=0 go build -trimpath -mod=vendor -ldflags "-s -w
   -X main.version=$(version)" -o /tavazon ./cmd/tavazon`.
-- final stage `gcr.io/distroless/static-debian12`; copy the binary and
-  `config.example.json` → `/config.json`. **Do not** copy any `.mmdb`.
+- final stage `FROM scratch`; copy the binary and `config.example.json` →
+  `/config.json`. **Do not** copy any `.mmdb`.
 - `VOLUME ["/data"]`, `EXPOSE 8080`, `ENTRYPOINT ["/tavazon","-config","/config.json"]`.
 
 ## 6.2 Finalise `docker-compose.yml`

@@ -1,0 +1,11 @@
+# Keep the build context small — only the module source + vendor/ are needed.
+.git
+.claude
+docs
+maxmind_files
+data
+*.mmdb
+*.log
+/tavazon
+/tavazon-*
+config.json

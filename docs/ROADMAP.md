@@ -176,7 +176,7 @@ The control + monitoring surface and the entrypoint.
 
 Make it shippable and prove it end to end.
 
-- `Dockerfile` (multi-stage, distroless, `-mod=vendor`), `docker-compose.yml` (host
+- `Dockerfile` (multi-stage, `scratch` final, `-mod=vendor`), `docker-compose.yml` (host
   networking, no Redis), `systemd/tavazon.service`.
 - `README.md` — install, **how to obtain the GeoLite2 `.mmdb` files**, usage.
 - `config.example.json`.

@@ -176,7 +176,7 @@ rewrite should fix:
 | UI | **Embedded web dashboard** + JSON API | Replaces the recursive TUI; reachable remotely; `embed`-bundled so still one binary |
 | Logging | `log/slog` (stdlib) with a **size-rotating** file handler we write ourselves | Structured logs, bounded disk usage |
 | Process management | systemd unit **and** Docker image, both provided | — |
-| Timezone | `Asia/Tehran` via `time.LoadLocation`; tzdata embedded with `import _ "time/tzdata"` | The curve is in Iran local time; embedding the zone DB (~450 KB) means it works on a `scratch`/distroless image that ships no system zoneinfo |
+| Timezone | `Asia/Tehran` via `time.LoadLocation`; tzdata embedded with `import _ "time/tzdata"` | The curve is in Iran local time; embedding the zone DB (~450 KB) means it works on a `scratch` image that ships no system zoneinfo |
 
 > **Cross-compilation:** `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build` and likewise
 > `arm64`. `maxminddb-golang` is pure Go, so the binary stays fully static and CGO-free.
@@ -192,7 +192,7 @@ tavazon/
 ├── vendor/                      # vendored deps — COMMITTED, enables offline build
 ├── README.md                    # user-facing install + usage
 ├── LICENSE                      # MIT
-├── Dockerfile                   # multi-stage: build stage IS the build env; distroless final image
+├── Dockerfile                   # multi-stage: build stage IS the build env; scratch final image
 ├── docker-compose.yml           # runtime service, network_mode: host, no Redis
 ├── .gitignore                   # /tavazon, *.mmdb, /data/state.json, /data/metering/, *.log
 ├── config.example.json          # reference config, documented by the README
@@ -1140,13 +1140,13 @@ engine) continues the loop.
 
 ```dockerfile
 # ---- build ----
-FROM golang:1.22-alpine AS build
+FROM golang:1.22 AS build
 WORKDIR /src
 COPY . .
 RUN CGO_ENABLED=0 go build -trimpath -mod=vendor -ldflags "-s -w" -o /tavazon ./cmd/tavazon
 
 # ---- run ----
-FROM gcr.io/distroless/static-debian12
+FROM scratch
 COPY --from=build /tavazon /tavazon
 COPY config.example.json /config.json
 VOLUME ["/data"]

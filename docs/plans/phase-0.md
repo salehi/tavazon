@@ -74,7 +74,7 @@ import (
 	"flag"
 	"fmt"
 
-	_ "time/tzdata" // embed the zoneinfo DB (~450 KB) so Asia/Tehran resolves on scratch/distroless
+	_ "time/tzdata" // embed the zoneinfo DB (~450 KB) so Asia/Tehran resolves on a scratch image
 )
 
 var version = "dev" // overridden at build time via -ldflags
@@ -110,8 +110,10 @@ runtime state and metering are written under `data/`.
 
 ### 0.7 `Dockerfile`
 
-Copy verbatim from [project.md §14.1](../project.md): multi-stage,
-`golang:1.22-alpine` build stage, `CGO_ENABLED=0 ... -mod=vendor`, distroless final.
+Copy verbatim from [project.md §14.1](../project.md): multi-stage, `golang:1.22`
+build stage (same image as the dev toolchain — one cached image),
+`CGO_ENABLED=0 ... -mod=vendor`, `scratch` final stage (Tavazon needs nothing from a
+base image, and it avoids a second registry pull).
 
 ### 0.8 `docker-compose.yml`
 
