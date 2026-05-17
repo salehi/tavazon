@@ -10,4 +10,4 @@ services:
       - ./config.json:/config.json
     environment:
       - TAVAZON_TARGET_RATIO_MULTIPLIER=8
-      - TAVAZON_WEB_LISTEN=127.0.0.1:8080
+      - TAVAZON_WEB_LISTEN=127.0.0.1:8081

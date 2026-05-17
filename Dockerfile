@@ -14,5 +14,5 @@ FROM scratch
 COPY --from=build /tavazon /tavazon
 COPY config.example.json /config.json
 VOLUME ["/data"]
-EXPOSE 8080
+EXPOSE 8081
 ENTRYPOINT ["/tavazon", "-config", "/config.json"]

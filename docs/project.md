@@ -867,7 +867,7 @@ See §10.
   },
   "web": {
     "enabled": true,
-    "listen": "127.0.0.1:8080",
+    "listen": "127.0.0.1:8081",
     "auth_token": ""             // if set, required as Bearer token / ?token=
   },
   "log": {
@@ -881,7 +881,7 @@ See §10.
 
 **Env-var overrides** (for Docker): every scalar is reachable as
 `TAVAZON_<SECTION>_<FIELD>`, e.g. `TAVAZON_TARGET_RATIO_MULTIPLIER=8`,
-`TAVAZON_WEB_LISTEN=0.0.0.0:8080`. **Flag overrides** take final precedence (§12).
+`TAVAZON_WEB_LISTEN=0.0.0.0:8081`. **Flag overrides** take final precedence (§12).
 
 > **Security note on `web.listen`:** the dashboard can change config and reset
 > counters. It binds `127.0.0.1` by default. Exposing it on `0.0.0.0` **must** be
@@ -1150,7 +1150,7 @@ FROM scratch
 COPY --from=build /tavazon /tavazon
 COPY config.example.json /config.json
 VOLUME ["/data"]
-EXPOSE 8080
+EXPOSE 8081
 ENTRYPOINT ["/tavazon", "-config", "/config.json"]
 ```
 
@@ -1172,7 +1172,7 @@ services:
       - ./config.json:/config.json
     environment:
       - TAVAZON_TARGET_RATIO_MULTIPLIER=8
-      - TAVAZON_WEB_LISTEN=127.0.0.1:8080
+      - TAVAZON_WEB_LISTEN=127.0.0.1:8081
 ```
 
 `network_mode: host` is required: the container must read the host's `/proc/net/dev`

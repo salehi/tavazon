@@ -71,7 +71,7 @@ network) — live stats, the 24-hour traffic curve, CPU/RAM/bandwidth gauges,
 billing, per-ASN breakdown, history, and a settings form with a live ASN
 picker. Start/Stop and Dev-mode are header toggle buttons.
 
-By default it binds **`127.0.0.1:8080`** — local only. If you change
+By default it binds **`127.0.0.1:8081`** — local only. If you change
 `web.listen` to a non-local address you **must** set `web.auth_token`; the
 dashboard can rewrite config and reset counters, so an unprotected non-local
 bind is dangerous. Tavazon logs a loud warning if you do this without a token.

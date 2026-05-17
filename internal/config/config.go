@@ -236,7 +236,7 @@ func Default() *Config {
 		},
 		Web: WebConfig{
 			Enabled:   true,
-			Listen:    "127.0.0.1:8080",
+			Listen:    "127.0.0.1:8081",
 			AuthToken: "",
 		},
 		Log: LogConfig{

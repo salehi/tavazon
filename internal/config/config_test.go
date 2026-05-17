@@ -73,7 +73,7 @@ func TestValidateRejects(t *testing.T) {
 
 func TestValidateWarnsOnExposedDashboard(t *testing.T) {
 	cfg := Default()
-	cfg.Web.Listen = "0.0.0.0:8080"
+	cfg.Web.Listen = "0.0.0.0:8081"
 	cfg.Web.AuthToken = ""
 	w, err := cfg.Validate()
 	if err != nil {

@@ -18,7 +18,7 @@ The Phase 0 `Dockerfile` was a skeleton; confirm against the real build:
   -X main.version=$(version)" -o /tavazon ./cmd/tavazon`.
 - final stage `FROM scratch`; copy the binary and `config.example.json` →
   `/config.json`. **Do not** copy any `.mmdb`.
-- `VOLUME ["/data"]`, `EXPOSE 8080`, `ENTRYPOINT ["/tavazon","-config","/config.json"]`.
+- `VOLUME ["/data"]`, `EXPOSE 8081`, `ENTRYPOINT ["/tavazon","-config","/config.json"]`.
 
 ## 6.2 Finalise `docker-compose.yml`
 
