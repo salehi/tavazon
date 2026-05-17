@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<!--
+  Tavazon dashboard — one self-contained file: inline CSS, inline vanilla JS,
+  no CDN, no framework, no build step. It must work on a censored network.
+  See docs/project.md §10.3.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tavazon</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2330; --line:#2a3340;
+    --fg:#e6edf3; --dim:#8b97a6; --accent:#3b82f6;
+    --green:#3fb950; --yellow:#d29922; --red:#f85149;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,Segoe UI,Roboto,sans-serif}
+  a{color:var(--accent)}
+  header{display:flex;align-items:center;gap:14px;padding:12px 20px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  header h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+  header .sp{flex:1}
+  .pill{padding:3px 10px;border-radius:999px;background:var(--panel2);color:var(--dim);font-size:12px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--red)}
+  .dot.ok{background:var(--green)}
+  button{font:inherit;cursor:pointer;border:1px solid var(--line);background:var(--panel2);
+    color:var(--fg);padding:6px 14px;border-radius:6px}
+  button:hover{border-color:var(--accent)}
+  button.on{background:var(--green);border-color:var(--green);color:#04210b}
+  button.off{background:var(--red);border-color:var(--red);color:#2a0606}
+  button.danger{border-color:var(--red);color:var(--red)}
+  .banner{background:var(--yellow);color:#2a1d00;text-align:center;padding:6px;font-weight:700;display:none}
+  main{padding:20px;max-width:1200px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+  .grid{display:grid;gap:14px}
+  .cards{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}
+  .card .k{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  .card .v{font-size:22px;font-weight:700;margin-top:4px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px}
+  .panel h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin-bottom:12px}
+  .gauges{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-around}
+  canvas{display:block}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--dim);font-weight:600}
+  .tabbar{display:flex;gap:6px;flex-wrap:wrap}
+  .tabbar button.active{border-color:var(--accent);color:var(--fg)}
+  .tab{display:none}
+  .tab.active{display:block}
+  label{display:block;color:var(--dim);font-size:12px;margin:8px 0 2px}
+  input,select{font:inherit;background:var(--panel2);color:var(--fg);border:1px solid var(--line);
+    border-radius:5px;padding:6px 8px;width:100%}
+  .formgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 14px}
+  .asnbox{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:5px;padding:6px;margin-top:4px}
+  .asnbox label{display:flex;gap:8px;align-items:center;color:var(--fg);margin:2px 0}
+  .asnbox input{width:auto}
+  .logbox{background:#06090d;border:1px solid var(--line);border-radius:6px;padding:10px;
+    font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;max-height:300px;overflow:auto;white-space:pre-wrap}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .msg{font-size:13px;margin-left:8px}
+  .msg.ok{color:var(--green)} .msg.err{color:var(--red)}
+  .bar{height:8px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .bar>span{display:block;height:100%;background:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>TAVAZON</h1>
+  <span class="pill">uptime <b id="uptime">—</b></span>
+  <span class="pill">mode <b id="mode">—</b></span>
+  <span class="pill"><span id="dot" class="dot"></span> <span id="conn">connecting…</span></span>
+  <span class="sp"></span>
+  <button id="btnRun">—</button>
+  <button id="btnDev">—</button>
+</header>
+<div id="devBanner" class="banner">DEV MODE — all traffic → <span id="devTarget"></span></div>
+
+<main>
+
+  <div class="grid cards" id="cards"></div>
+
+  <div class="panel">
+    <h2>Upload speed — last samples</h2>
+    <canvas id="chart" width="1140" height="180"></canvas>
+  </div>
+
+  <div class="panel">
+    <h2>Process resources</h2>
+    <div class="gauges">
+      <div><canvas id="gCpu" width="150" height="150"></canvas></div>
+      <div><canvas id="gRam" width="150" height="150"></canvas></div>
+      <div><canvas id="gBw" width="150" height="150"></canvas></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Billing window</h2>
+    <div class="grid cards" id="billing"></div>
+    <h2 style="margin-top:14px">Per-ASN — recent fake traffic</h2>
+    <table><thead><tr><th>ASN</th><th>Bytes</th><th>Share</th></tr></thead>
+      <tbody id="perasn"></tbody></table>
+  </div>
+
+  <div class="panel">
+    <div class="tabbar" id="tabbar">
+      <button data-tab="settings" class="active">Settings</button>
+      <button data-tab="history">History</button>
+      <button data-tab="audit">Audit log</button>
+      <button data-tab="tools">Counter tools</button>
+      <button data-tab="logs">Log tail</button>
+    </div>
+
+    <div class="tab active" id="tab-settings" style="margin-top:14px">
+      <div class="formgrid" id="cfgForm"></div>
+      <label>Selected ASNs <input id="asnSearch" placeholder="filter…"></label>
+      <div class="asnbox" id="asnBox"></div>
+      <label>curve.anchors (24 comma-separated values)</label>
+      <input id="anchors">
+      <div class="row" style="margin-top:12px">
+        <button id="btnApply">Apply config</button>
+        <span class="msg" id="cfgMsg"></span>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-history" style="margin-top:14px">
+      <canvas id="histChart" width="1140" height="200"></canvas>
+      <div id="histSummary" style="color:var(--dim);margin-top:8px"></div>
+    </div>
+
+    <div class="tab" id="tab-audit" style="margin-top:14px">
+      <table><thead><tr><th>Time</th><th>Source</th><th>Change</th></tr></thead>
+        <tbody id="auditBody"></tbody></table>
+    </div>
+
+    <div class="tab" id="tab-tools" style="margin-top:14px">
+      <div class="row">
+        <button class="danger" id="btnReset">Reset counters to zero</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div><label>Set Σ upload (GB)</label><input id="syncUp" type="number" min="0" step="0.1" value="0"></div>
+        <div><label>Set Σ download (GB)</label><input id="syncDown" type="number" min="0" step="0.1" value="0"></div>
+        <button class="danger" id="btnSetSync" style="align-self:flex-end">Set lifetime totals</button>
+      </div>
+      <span class="msg" id="toolsMsg"></span>
+    </div>
+
+    <div class="tab" id="tab-logs" style="margin-top:14px">
+      <div class="logbox" id="logBox">loading…</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let CFG = null, ASNS = [];
+
+function api(path, opts){
+  return fetch(path, opts).then(r => r.json().then(j => {
+    if(!r.ok) throw new Error(j.error || r.status);
+    return j;
+  }));
+}
+function human(n){
+  n = Number(n)||0; const u=["B","KiB","MiB","GiB","TiB","PiB"]; let i=0;
+  while(n>=1024 && i<u.length-1){ n/=1024; i++; }
+  return (i?n.toFixed(2):n)+" "+u[i];
+}
+function bps(n){ return human(n)+"/s"; }
+function dur(s){
+  s=Math.floor(s); const d=Math.floor(s/86400); s%=86400;
+  const h=Math.floor(s/3600); s%=3600; const m=Math.floor(s/60);
+  return (d?d+"d ":"")+(h?h+"h ":"")+m+"m";
+}
+
+/* ---- live stats poll ---- */
+function paintStats(s){
+  $("dot").className = "dot ok";
+  $("conn").textContent = "connected";
+  $("uptime").textContent = dur(s.uptime_seconds);
+  $("mode").textContent = s.mode;
+  const run = s.running;
+  $("btnRun").textContent = run ? "■ Stop" : "▶ Start";
+  $("btnRun").className = run ? "on" : "off";
+  $("btnDev").textContent = s.dev.enabled ? "Dev: ON" : "Dev: off";
+  $("btnDev").className = s.dev.enabled ? "off" : "";
+  $("devBanner").style.display = s.dev.enabled ? "block" : "none";
+  $("devTarget").textContent = s.dev.target;
+
+  const r = s.ratio.current, tgt = s.ratio.target;
+  const rc = r >= tgt*0.95 ? "var(--green)" : r >= tgt*0.6 ? "var(--yellow)" : "var(--red)";
+  const cards = [
+    ["Σ Upload", human(s.tracked.upload)],
+    ["Σ Download", human(s.tracked.download)],
+    ["Ratio", `<span style="color:${rc}">${r.toFixed(2)}</span> / ${tgt}`],
+    ["⇧ Speed", bps(s.speed.upload_bps)],
+    ["⇩ Speed", bps(s.speed.download_bps)],
+    ["Workers", s.workers_active],
+    ["Deficit", human(s.deficit_bytes)],
+    ["Curve", s.curve_intensity.toFixed(2)],
+    ["Fake / cycle", human(s.fake_bytes_cycle)],
+    ["Fake total", human(s.fake_bytes_total)],
+  ];
+  $("cards").innerHTML = cards.map(c =>
+    `<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div></div>`).join("");
+
+  drawChart(s.speed_samples || []);
+  const rs = s.resources || {};
+  gauge($("gCpu"), rs.cpu_pct||0, "CPU", (rs.cpu_pct||0).toFixed(1)+"%");
+  gauge($("gRam"), rs.ram_pct||0, "RAM", human(rs.ram_used_bytes));
+  gauge($("gBw"), rs.bandwidth_pct||0, "Bandwidth", bps(rs.bandwidth_bps));
+
+  const pa = s.per_asn_cycle || {};
+  const tot = Object.values(pa).reduce((a,b)=>a+b,0) || 1;
+  $("perasn").innerHTML = Object.keys(pa).length
+    ? Object.entries(pa).sort((a,b)=>b[1]-a[1]).map(([k,v])=>
+        `<tr><td>AS${k}</td><td>${human(v)}</td>
+         <td><div class="bar"><span style="width:${(v/tot*100).toFixed(1)}%"></span></div></td></tr>`).join("")
+    : `<tr><td colspan="3" style="color:var(--dim)">no traffic yet</td></tr>`;
+}
+function pollStats(){
+  api("/api/stats").then(paintStats).catch(()=>{
+    $("dot").className="dot"; $("conn").textContent="disconnected";
+  });
+}
+
+/* ---- canvas: speed chart ---- */
+function drawChart(samples){
+  const c=$("chart"), x=c.getContext("2d"), W=c.width, H=c.height;
+  x.clearRect(0,0,W,H);
+  if(!samples.length) return;
+  const max=Math.max(...samples,1);
+  x.strokeStyle="#2a3340"; x.beginPath();
+  for(let i=0;i<=4;i++){ const y=H*i/4; x.moveTo(0,y); x.lineTo(W,y); }
+  x.stroke();
+  x.strokeStyle="#3b82f6"; x.lineWidth=1.5; x.beginPath();
+  samples.forEach((v,i)=>{
+    const px=i/(samples.length-1||1)*W, py=H-(v/max)*(H-8)-4;
+    i?x.lineTo(px,py):x.moveTo(px,py);
+  });
+  x.stroke();
+  x.fillStyle="#8b97a6"; x.font="11px sans-serif";
+  x.fillText(bps(max), 4, 12);
+}
+
+/* ---- canvas: donut gauge ---- */
+function gauge(c, pct, label, center){
+  pct=Math.max(0,Math.min(100,pct));
+  const x=c.getContext("2d"), W=c.width, H=c.height, cx=W/2, cy=H/2, r=52;
+  x.clearRect(0,0,W,H);
+  const col = pct<60?"#3fb950":pct<85?"#d29922":"#f85149";
+  x.lineWidth=16;
+  x.strokeStyle="#1c2330"; x.beginPath(); x.arc(cx,cy,r,0,2*Math.PI); x.stroke();
+  x.strokeStyle=col; x.beginPath();
+  x.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+2*Math.PI*pct/100); x.stroke();
+  x.fillStyle="#e6edf3"; x.textAlign="center";
+  x.font="bold 13px sans-serif"; x.fillText(center,cx,cy+2);
+  x.fillStyle="#8b97a6"; x.font="11px sans-serif"; x.fillText(label,cx,cy+20);
+}
+
+/* ---- controls ---- */
+$("btnRun").onclick = ()=>{
+  const stop = $("btnRun").className==="on";
+  api("/api/control/"+(stop?"stop":"start"),{method:"POST"}).then(pollStats);
+};
+$("btnDev").onclick = ()=>{
+  const on = $("btnDev").className==="off";
+  api("/api/control/dev",{method:"POST",body:JSON.stringify({enabled:!on})}).then(()=>{
+    pollStats(); loadAudit();
+  });
+};
+
+/* ---- billing ---- */
+function loadBilling(){
+  api("/api/billing").then(b=>{
+    $("billing").innerHTML = [
+      ["⇧ p"+b.percentile, bps(b.up_p95_bps)],
+      ["⇩ p"+b.percentile, bps(b.down_p95_bps)],
+      ["Σ Upload (window)", human(b.up_total_bytes)],
+      ["Σ Download (window)", human(b.down_total_bytes)],
+      ["Samples", b.samples],
+    ].map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div></div>`).join("");
+  }).catch(()=>{});
+}
+
+/* ---- history ---- */
+function loadHistory(){
+  api("/api/history").then(h=>{
+    const b=h.buckets||[];
+    const c=$("histChart"), x=c.getContext("2d"), W=c.width, H=c.height;
+    x.clearRect(0,0,W,H);
+    let up=0,down=0,fake=0;
+    const vals=b.map(k=>{ up+=k.up_bytes; down+=k.down_bytes; fake+=k.fake_bytes; return k.up_bytes; });
+    const max=Math.max(...vals,1);
+    x.fillStyle="#3b82f6";
+    vals.forEach((v,i)=>{
+      const bw=W/(vals.length||1), bh=(v/max)*(H-10);
+      x.fillRect(i*bw, H-bh, Math.max(bw-1,1), bh);
+    });
+    $("histSummary").textContent =
+      `${b.length} buckets · Σ up ${human(up)} · Σ down ${human(down)} · fake ${human(fake)}`;
+  }).catch(()=>{});
+}
+
+/* ---- audit ---- */
+function loadAudit(){
+  api("/api/audit?n=100").then(rs=>{
+    $("auditBody").innerHTML = (rs.length?rs.slice().reverse():[]).map(r=>
+      `<tr><td>${new Date(r.time).toLocaleString()}</td><td>${r.source}</td><td>${r.change}</td></tr>`
+    ).join("") || `<tr><td colspan="3" style="color:var(--dim)">no records</td></tr>`;
+  }).catch(()=>{});
+}
+
+/* ---- logs ---- */
+function loadLogs(){
+  api("/api/logs?n=200").then(j=>{
+    $("logBox").textContent = (j.lines||[]).join("\n") || "(empty)";
+    $("logBox").scrollTop = $("logBox").scrollHeight;
+  }).catch(()=>{});
+}
+
+/* ---- settings ---- */
+const FIELDS = [
+  ["target.mode","Mode (ratio|volume)","text"],
+  ["target.ratio.multiplier","Ratio multiplier","number"],
+  ["target.ratio.jitter","Ratio jitter","number"],
+  ["target.volume.bytes","Volume bytes","number"],
+  ["target.volume.window","Volume window","text"],
+  ["network.interface","Interface","text"],
+  ["network.link_capacity_mbit","Link capacity (Mbit)","number"],
+  ["uploader.threads_coefficient","Threads coefficient","number"],
+  ["uploader.speed_coefficient","Speed coefficient","number"],
+  ["uploader.base_rate_bps","Base rate (B/s)","number"],
+  ["uploader.cycle_budget_fraction","Cycle budget fraction","number"],
+  ["uploader.packet_gap_max","Packet gap max","text"],
+  ["uploader.max_workers","Max workers","number"],
+  ["uploader.max_ramp","Max ramp","number"],
+  ["uploader.min_datagram","Min datagram","number"],
+  ["uploader.max_datagram","Max datagram","number"],
+  ["dev.target","Dev target IP","text"],
+  ["dev.workers","Dev workers","number"],
+  ["geoip.picker_country","ASN picker country","text"],
+];
+function dig(o,path){ return path.split(".").reduce((a,k)=>a&&a[k],o); }
+function setIn(o,path,v){
+  const ks=path.split("."); let t=o;
+  for(let i=0;i<ks.length-1;i++) t=t[ks[i]];
+  t[ks[ks.length-1]]=v;
+}
+function buildForm(){
+  $("cfgForm").innerHTML = FIELDS.map(([p,lbl,t])=>
+    `<div><label>${lbl}</label><input data-path="${p}" type="${t}"
+       ${t==="number"?'step="any"':''}></div>`).join("");
+}
+function fillForm(){
+  FIELDS.forEach(([p])=>{
+    const el=document.querySelector(`[data-path="${p}"]`);
+    if(el) el.value = dig(CFG,p);
+  });
+  $("anchors").value = (CFG.curve.anchors||[]).join(",");
+}
+function loadConfig(){
+  return api("/api/config").then(c=>{ CFG=c; fillForm(); renderASNs(); });
+}
+function loadASNs(){
+  const country = (CFG && CFG.geoip.picker_country) || "IR";
+  api("/api/asns?country="+encodeURIComponent(country)).then(a=>{ ASNS=a||[]; renderASNs(); });
+}
+function renderASNs(){
+  if(!CFG) return;
+  const sel = new Set(CFG.geoip.selected_asns||[]);
+  const q = $("asnSearch").value.toLowerCase();
+  const list = ASNS.filter(a =>
+    !q || (""+a.number).includes(q) || (a.name||"").toLowerCase().includes(q));
+  // always show already-selected ASNs even if not in the country list
+  sel.forEach(n=>{ if(!ASNS.some(a=>a.number===n)) list.unshift({number:n,name:"(selected)"}); });
+  $("asnBox").innerHTML = list.slice(0,400).map(a=>
+    `<label><input type="checkbox" value="${a.number}" ${sel.has(a.number)?"checked":""}>
+     AS${a.number} — ${a.name||""}</label>`).join("") || "<i style='color:var(--dim)'>none</i>";
+}
+$("asnSearch").oninput = renderASNs;
+$("btnApply").onclick = ()=>{
+  const msg=$("cfgMsg"); msg.textContent="";
+  FIELDS.forEach(([p,,t])=>{
+    const el=document.querySelector(`[data-path="${p}"]`);
+    if(el) setIn(CFG,p, t==="number"?Number(el.value):el.value);
+  });
+  CFG.geoip.selected_asns = [...$("asnBox").querySelectorAll("input:checked")]
+    .map(i=>Number(i.value));
+  const anc = $("anchors").value.split(",").map(Number);
+  if(anc.length===24 && anc.every(n=>!isNaN(n))) CFG.curve.anchors=anc;
+  api("/api/config",{method:"PUT",body:JSON.stringify(CFG)}).then(j=>{
+    msg.className="msg ok"; msg.textContent = j.change ? "applied: "+j.change : "applied (no change)";
+    loadAudit();
+  }).catch(e=>{ msg.className="msg err"; msg.textContent=e.message; });
+};
+
+/* ---- counter tools ---- */
+$("btnReset").onclick = ()=>{
+  if(!confirm("Reset both lifetime counters to zero?")) return;
+  api("/api/control/reset-counters",{method:"POST"}).then(()=>{
+    $("toolsMsg").className="msg ok"; $("toolsMsg").textContent="counters reset"; pollStats();
+  }).catch(e=>{ $("toolsMsg").className="msg err"; $("toolsMsg").textContent=e.message; });
+};
+$("btnSetSync").onclick = ()=>{
+  if(!confirm("Overwrite lifetime totals?")) return;
+  api("/api/control/set-sync",{method:"POST",body:JSON.stringify({
+    upload_gb:Number($("syncUp").value), download_gb:Number($("syncDown").value)})}).then(()=>{
+    $("toolsMsg").className="msg ok"; $("toolsMsg").textContent="totals set"; pollStats();
+  }).catch(e=>{ $("toolsMsg").className="msg err"; $("toolsMsg").textContent=e.message; });
+};
+
+/* ---- tabs ---- */
+$("tabbar").addEventListener("click", e=>{
+  const t = e.target.dataset.tab; if(!t) return;
+  document.querySelectorAll("#tabbar button").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));
+  document.querySelectorAll(".tab").forEach(d=>d.classList.toggle("active",d.id==="tab-"+t));
+  if(t==="history") loadHistory();
+  if(t==="audit") loadAudit();
+  if(t==="logs") loadLogs();
+});
+
+/* ---- boot ---- */
+buildForm();
+loadConfig().then(loadASNs);
+pollStats(); loadBilling();
+setInterval(pollStats, 2000);
+setInterval(loadBilling, 30000);
+</script>
+</body>
+</html>
