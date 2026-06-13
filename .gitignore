@@ -1,6 +1,8 @@
 # Build output
 /tavazon
 /tavazon-*
+/bin/
+/.cache/
 
 # MaxMind GeoLite2 databases — operator-supplied, never redistributed (RED_LINES X12)
 *.mmdb
