@@ -39,7 +39,7 @@ shows the problem — but the uploader stays idle until they are provided.
 
 ```sh
 sudo mkdir -p /opt/tavazon/data /opt/tavazon/maxmind_files
-# download a release binary (or build one — see "Building" below) and copy it in:
+# download a release binary (see "Downloads" below) and copy it in:
 sudo cp tavazon /opt/tavazon/tavazon
 sudo cp config.example.json /opt/tavazon/config.json
 sudo cp maxmind_files/*.mmdb /opt/tavazon/maxmind_files/
@@ -85,27 +85,11 @@ tavazon [flags]
 Settings precedence, lowest to highest: **built-in defaults → `config.json` →
 `TAVAZON_*` environment variables → CLI flags**.
 
-## Building
+## Downloads
 
 Prebuilt binaries for **linux, macOS and Windows** across **x86_64, arm64 and
 armv7** are published on the [Releases](https://github.com/salehi/namizungo/releases)
-page. They are built by GitHub Actions
-([.github/workflows/release.yml](.github/workflows/release.yml)) on every tag
-that looks like `release-1.0.0`.
-
-To build locally you need Go 1.22+:
-
-```sh
-go test -race -mod=vendor ./...                       # full suite
-go test -race -mod=vendor -tags e2e ./...             # + e2e smoke test
-CGO_ENABLED=0 go build -mod=vendor -trimpath \
-  -ldflags "-s -w" -o tavazon ./cmd/tavazon           # release binary
-```
-
-Cross-compile by setting `GOOS`/`GOARCH` (e.g. `GOOS=linux GOARCH=arm64`).
-Builds are offline: dependencies are vendored under `vendor/`. The full
-contributor workflow is in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md); the
-design rationale is in [docs/project.md](docs/project.md).
+page, produced automatically on every `release-1.0.0`-style tag.
 
 ## Licence
 
