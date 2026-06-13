@@ -169,7 +169,7 @@
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
-let CFG = null, ASNS = [];
+let CFG = null, ASNS = [], SEL = new Set();
 
 function api(path, opts){
   return fetch(path, opts).then(r => r.json().then(j => {
@@ -336,11 +336,12 @@ function loadLogs(){
 }
 
 /* ---- settings ---- */
+const GIB = 2**30;  // target.volume.bytes is shown in GB, stored as bytes
 const FIELDS = [
   ["target.mode","Mode (ratio|volume)","text"],
   ["target.ratio.multiplier","Ratio multiplier","number"],
   ["target.ratio.jitter","Ratio jitter","number"],
-  ["target.volume.bytes","Volume bytes","number"],
+  ["target.volume.bytes","Volume (GB)","number"],
   ["target.volume.window","Volume window","text"],
   ["network.interface","Interface","text"],
   ["network.link_capacity_mbit","Link capacity (Mbit)","number"],
@@ -371,7 +372,9 @@ function buildForm(){
 function fillForm(){
   FIELDS.forEach(([p])=>{
     const el=document.querySelector(`[data-path="${p}"]`);
-    if(el) el.value = dig(CFG,p);
+    if(!el) return;
+    const v = dig(CFG,p);
+    el.value = p==="target.volume.bytes" ? v/GIB : v;
   });
   curveActual = (CFG.curve.anchors||[]).slice();
   curveEdit   = curveActual.slice();
@@ -445,7 +448,9 @@ window.addEventListener("mousemove", e=>{
 window.addEventListener("mouseup", ()=>{ dragIdx=-1; });
 $("btnCurveReset").onclick = ()=>{ curveEdit=curveActual.slice(); drawCurve(); };
 function loadConfig(){
-  return api("/api/config").then(c=>{ CFG=c; fillForm(); renderASNs(); });
+  return api("/api/config").then(c=>{
+    CFG=c; SEL = new Set(CFG.geoip.selected_asns||[]); fillForm(); renderASNs();
+  });
 }
 function loadASNs(){
   const country = (CFG && CFG.geoip.picker_country) || "IR";
@@ -453,25 +458,31 @@ function loadASNs(){
 }
 function renderASNs(){
   if(!CFG) return;
-  const sel = new Set(CFG.geoip.selected_asns||[]);
   const q = $("asnSearch").value.toLowerCase();
   const list = ASNS.filter(a =>
     !q || (""+a.number).includes(q) || (a.name||"").toLowerCase().includes(q));
   // always show already-selected ASNs even if not in the country list
-  sel.forEach(n=>{ if(!ASNS.some(a=>a.number===n)) list.unshift({number:n,name:"(selected)"}); });
+  SEL.forEach(n=>{ if(!ASNS.some(a=>a.number===n)) list.unshift({number:n,name:"(selected)"}); });
   $("asnBox").innerHTML = list.slice(0,400).map(a=>
-    `<label><input type="checkbox" value="${a.number}" ${sel.has(a.number)?"checked":""}>
+    `<label><input type="checkbox" value="${a.number}" ${SEL.has(a.number)?"checked":""}>
      AS${a.number} — ${a.name||""}</label>`).join("") || "<i style='color:var(--dim)'>none</i>";
 }
 $("asnSearch").oninput = renderASNs;
+// Track toggles in SEL so selections survive re-renders (e.g. filtering).
+$("asnBox").addEventListener("change", e=>{
+  const cb = e.target; if(cb.type!=="checkbox") return;
+  const n = Number(cb.value);
+  if(cb.checked) SEL.add(n); else SEL.delete(n);
+});
 $("btnApply").onclick = ()=>{
   const msg=$("cfgMsg"); msg.textContent="";
   FIELDS.forEach(([p,,t])=>{
     const el=document.querySelector(`[data-path="${p}"]`);
-    if(el) setIn(CFG,p, t==="number"?Number(el.value):el.value);
+    if(!el) return;
+    if(p==="target.volume.bytes") setIn(CFG,p, Math.round(Number(el.value)*GIB));
+    else setIn(CFG,p, t==="number"?Number(el.value):el.value);
   });
-  CFG.geoip.selected_asns = [...$("asnBox").querySelectorAll("input:checked")]
-    .map(i=>Number(i.value));
+  CFG.geoip.selected_asns = [...SEL];
   CFG.curve.anchors = curveEdit.slice();
   api("/api/config",{method:"PUT",body:JSON.stringify(CFG)}).then(j=>{
     msg.className="msg ok"; msg.textContent = j.change ? "applied: "+j.change : "applied (no change)";
