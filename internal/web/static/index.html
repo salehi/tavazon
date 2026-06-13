@@ -97,7 +97,7 @@
   </div>
 
   <div class="panel">
-    <h2>Process resources</h2>
+    <h2>System resources</h2>
     <div class="gauges">
       <div><canvas id="gCpu" width="150" height="150"></canvas></div>
       <div><canvas id="gRam" width="150" height="150"></canvas></div>
@@ -347,7 +347,7 @@ const FIELDS = [
   ["target.ratio.jitter","Ratio jitter","number"],
   ["target.volume.bytes","Volume (GB)","number"],
   ["target.volume.window","Volume window","text"],
-  ["network.interface","Interface","text"],
+  ["network.interface","Interface","iface"],
   ["network.link_capacity_mbit","Link capacity (Mbit)","number"],
   ["uploader.threads_coefficient","Threads coefficient","number"],
   ["uploader.speed_coefficient","Speed coefficient","number"],
@@ -375,6 +375,10 @@ function buildForm(){
       return `<div><label>${lbl}</label><span class="rate">
         <input data-path="${p}" type="number" step="any">
         <select data-unit="${p}">${opts}</select></span></div>`;
+    }
+    if(t==="iface"){
+      // options are filled by loadInterfaces() once /api/interfaces returns.
+      return `<div><label>${lbl}</label><select data-path="${p}"></select></div>`;
     }
     return `<div><label>${lbl}</label><input data-path="${p}" type="${t}"
        ${t==="number"?'step="any"':''}></div>`;
@@ -475,6 +479,23 @@ function loadASNs(){
   const country = (CFG && CFG.geoip.picker_country) || "IR";
   api("/api/asns?country="+encodeURIComponent(country)).then(a=>{ ASNS=a||[]; renderASNs(); });
 }
+/* ---- interface picker ----
+   A dropdown of the host's interfaces plus an "All (except loopback)" choice
+   that maps to the empty-string config value. The currently-configured
+   interface is always offered even if it is down (not in the live list). */
+function loadInterfaces(){
+  api("/api/interfaces").then(populateIfaces).catch(()=>populateIfaces([]));
+}
+function populateIfaces(list){
+  const sel = document.querySelector('[data-path="network.interface"]');
+  if(!sel) return;
+  const cur = (CFG && CFG.network.interface) || "";
+  const names = (list||[]).slice();
+  if(cur && !names.includes(cur)) names.unshift(cur);
+  sel.innerHTML = `<option value="">All (except loopback)</option>`
+    + names.map(n=>`<option value="${n}">${n}</option>`).join("");
+  sel.value = cur;
+}
 function renderASNs(){
   if(!CFG) return;
   const q = $("asnSearch").value.toLowerCase();
@@ -543,7 +564,7 @@ $("tabbar").addEventListener("click", e=>{
 
 /* ---- boot ---- */
 buildForm();
-loadConfig().then(loadASNs);
+loadConfig().then(()=>{ loadASNs(); loadInterfaces(); });
 pollStats(); loadBilling();
 setInterval(pollStats, 2000);
 setInterval(loadBilling, 30000);
