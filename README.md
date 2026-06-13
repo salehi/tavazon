@@ -17,6 +17,41 @@ authorised to balance**. It is not a stress-testing or flooding tool. The hard
 limits — what it must never be pointed at, and why — are spelled out in
 [docs/RED_LINES.md](docs/RED_LINES.md). Read them before deploying.
 
+## Install
+
+One line, on Linux or macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/salehi/namizungo/main/install.sh | sh
+```
+
+It downloads the release binary matching your OS and CPU (x86_64 / arm64 /
+armv7) and lays out a self-contained directory at **`/opt/tavazon`**:
+
+```
+/opt/tavazon/
+  tavazon              # the binary
+  config.json          # copied from config.example.json (an existing one is kept)
+  maxmind_files/       # you drop the GeoLite2 .mmdb files here
+  data/                # runtime state, metering, logs
+```
+
+The script installs **this project only** — it does *not* fetch the GeoLite2
+databases (MaxMind's licence forbids redistributing them). If the `.mmdb` files
+are missing it prints a clear warning; see
+[Obtaining the GeoLite2 databases](#obtaining-the-geolite2-databases) below.
+
+Overrides:
+
+```sh
+curl -fsSL .../install.sh | TAVAZON_DIR=~/tavazon sh    # install somewhere writable (no sudo)
+curl -fsSL .../install.sh | sh -s -- 1.0.0              # pin a version instead of the latest
+```
+
+Prefer to install by hand, or on **Windows**? Every release also ships archives
+for all targets on the
+[Releases](https://github.com/salehi/namizungo/releases) page.
+
 ## Obtaining the GeoLite2 databases
 
 Tavazon resolves its destination IPs from MaxMind's free GeoLite2 databases.
@@ -37,13 +72,12 @@ shows the problem — but the uploader stays idle until they are provided.
 
 ## Running with systemd
 
+The installer above already populates `/opt/tavazon` — the same path the unit
+expects. After dropping the `.mmdb` files into `/opt/tavazon/maxmind_files/`:
+
 ```sh
-sudo mkdir -p /opt/tavazon/data /opt/tavazon/maxmind_files
-# download a release binary (see "Downloads" below) and copy it in:
-sudo cp tavazon /opt/tavazon/tavazon
-sudo cp config.example.json /opt/tavazon/config.json
-sudo cp maxmind_files/*.mmdb /opt/tavazon/maxmind_files/
-sudo cp systemd/tavazon.service /etc/systemd/system/
+curl -fsSL https://raw.githubusercontent.com/salehi/namizungo/main/systemd/tavazon.service \
+  | sudo tee /etc/systemd/system/tavazon.service >/dev/null
 sudo systemctl enable --now tavazon
 ```
 
@@ -84,12 +118,6 @@ tavazon [flags]
 
 Settings precedence, lowest to highest: **built-in defaults → `config.json` →
 `TAVAZON_*` environment variables → CLI flags**.
-
-## Downloads
-
-Prebuilt binaries for **linux, macOS and Windows** across **x86_64, arm64 and
-armv7** are published on the [Releases](https://github.com/salehi/namizungo/releases)
-page, produced automatically on every `release-1.0.0`-style tag.
 
 ## Licence
 
