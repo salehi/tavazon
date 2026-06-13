@@ -58,7 +58,7 @@ tavazon
 
 (A bare name like this works fine for a local/internal project. If the
 project ever needs to be `go get`-able as a remote dependency, use a
-fetchable path instead, e.g. `github.com/salehi/namizun-go`.)
+fetchable path instead, e.g. `github.com/salehi/tavazon`.)
 
 ### Step 1 — edit go.mod
 
