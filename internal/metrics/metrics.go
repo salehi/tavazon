@@ -13,8 +13,9 @@ import (
 // maxSamples bounds the in-memory ring of recent upload-speed samples.
 const maxSamples = 600
 
-// Resources is the process resource snapshot rendered by the dashboard's
-// CPU / RAM / bandwidth panel.
+// Resources is the whole-machine resource snapshot rendered by the dashboard's
+// CPU / RAM / bandwidth panel. CPUPct/RAMPct are system-wide utilisation;
+// BandwidthPct is the upload speed as a share of the configured link capacity.
 type Resources struct {
 	CPUPct          float64 `json:"cpu_pct"`
 	RAMUsedBytes    int64   `json:"ram_used_bytes"`

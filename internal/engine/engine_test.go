@@ -87,9 +87,10 @@ func risingCounters() func(string) (netstat.Counters, error) {
 
 func fakeSysstat() (sysstat.Sample, error) {
 	return sysstat.Sample{
-		CPUJiffies:    10,
-		RSSBytes:      1 << 20,
+		CPUTotal:      1000,
+		CPUIdle:       600,
 		MemTotalBytes: 1 << 30,
+		MemUsedBytes:  1 << 28,
 		At:            time.Now(),
 	}, nil
 }

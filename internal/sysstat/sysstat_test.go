@@ -2,66 +2,71 @@ package sysstat
 
 import (
 	"math"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
-func TestParseStatJiffies(t *testing.T) {
-	// A comm with spaces and nested parentheses stresses the last-')' parsing.
-	line := "1234 (my proc (x)) S 1 1234 1234 0 -1 4194304 100 0 0 0 50 30 0 0 20 0 5 0\n"
-	j, err := parseStatJiffies(line)
+func TestParseCPULine(t *testing.T) {
+	// cpu  user nice system idle iowait irq softirq steal guest guest_nice
+	stat := "cpu  100 0 50 800 40 0 10 0 0 0\ncpu0 50 0 25 400 20 0 5 0 0 0\n"
+	total, idle, err := parseCPULine(strings.NewReader(stat))
 	if err != nil {
-		t.Fatalf("parseStatJiffies: %v", err)
+		t.Fatalf("parseCPULine: %v", err)
 	}
-	if j != 80 {
-		t.Errorf("jiffies = %d, want 80 (utime 50 + stime 30)", j)
+	// total = 100+0+50+800+40+0+10 = 1000; idle = idle(800)+iowait(40) = 840.
+	if total != 1000 {
+		t.Errorf("total = %d, want 1000", total)
+	}
+	if idle != 840 {
+		t.Errorf("idle = %d, want 840", idle)
 	}
 }
 
-func TestParseKBLine(t *testing.T) {
-	status := "Name:\ttavazon\nVmRSS:\t   18432 kB\nVmSize:\t 99999 kB\n"
-	rss, err := parseKBLine(strings.NewReader(status), "VmRSS:")
+func TestParseMeminfo(t *testing.T) {
+	mem := "MemTotal:       16384000 kB\nMemFree:  8000000 kB\nMemAvailable:   12000000 kB\n"
+	total, avail, err := parseMeminfo(strings.NewReader(mem))
 	if err != nil {
-		t.Fatalf("parseKBLine VmRSS: %v", err)
+		t.Fatalf("parseMeminfo: %v", err)
 	}
-	if rss != 18432*1024 {
-		t.Errorf("rss = %d, want %d", rss, 18432*1024)
+	if total != 16384000*1024 {
+		t.Errorf("total = %d, want %d", total, 16384000*1024)
+	}
+	if avail != 12000000*1024 {
+		t.Errorf("avail = %d, want %d", avail, 12000000*1024)
 	}
 
-	mem := "MemTotal:       16384000 kB\nMemFree:         8000000 kB\n"
-	mt, err := parseKBLine(strings.NewReader(mem), "MemTotal:")
+	// MemAvailable absent (old kernel): total still parses, avail is 0.
+	total2, avail2, err := parseMeminfo(strings.NewReader("MemTotal: 100 kB\nMemFree: 50 kB\n"))
 	if err != nil {
-		t.Fatalf("parseKBLine MemTotal: %v", err)
+		t.Fatalf("parseMeminfo without MemAvailable: %v", err)
 	}
-	if mt != 16384000*1024 {
-		t.Errorf("memtotal = %d, want %d", mt, 16384000*1024)
+	if total2 != 100*1024 || avail2 != 0 {
+		t.Errorf("got total=%d avail=%d, want total=%d avail=0", total2, avail2, 100*1024)
 	}
 
-	if _, err := parseKBLine(strings.NewReader("Name:\tx\n"), "VmRSS:"); err == nil {
-		t.Error("expected an error when the prefix is absent")
+	if _, _, err := parseMeminfo(strings.NewReader("MemFree: 50 kB\n")); err == nil {
+		t.Error("expected an error when MemTotal is absent")
 	}
 }
 
 func TestCPUPercent(t *testing.T) {
 	t0 := time.Now()
-	prev := Sample{CPUJiffies: 1000, At: t0}
-	cur := Sample{CPUJiffies: 1200, At: t0.Add(2 * time.Second)}
-	// 200 jiffies / 100 Hz = 2 CPU-seconds over 2 wall-seconds.
+	// 1000 total jiffies elapse, 250 of them idle -> 75% busy.
+	prev := Sample{CPUTotal: 10000, CPUIdle: 6000, At: t0}
+	cur := Sample{CPUTotal: 11000, CPUIdle: 6250, At: t0.Add(time.Second)}
 	got := CPUPercent(prev, cur)
-	want := 100.0 / float64(runtime.NumCPU())
-	if math.Abs(got-want) > 1e-9 {
+	if want := 75.0; math.Abs(got-want) > 1e-9 {
 		t.Errorf("CPUPercent = %v, want %v", got, want)
 	}
 }
 
 func TestCPUPercentHandlesReset(t *testing.T) {
 	t0 := time.Now()
-	prev := Sample{CPUJiffies: 5000, At: t0}
-	cur := Sample{CPUJiffies: 10, At: t0.Add(time.Second)}
+	prev := Sample{CPUTotal: 5000, CPUIdle: 4000, At: t0}
+	cur := Sample{CPUTotal: 10, CPUIdle: 5, At: t0.Add(time.Second)} // counters went backwards
 	if got := CPUPercent(prev, cur); got != 0 {
-		t.Errorf("CPUPercent on a backward jiffy count = %v, want 0", got)
+		t.Errorf("CPUPercent on a backward counter = %v, want 0", got)
 	}
 }
 
@@ -70,10 +75,13 @@ func TestReadRealProc(t *testing.T) {
 	if err != nil {
 		t.Skipf("Read failed (not Linux?): %v", err)
 	}
-	if s.RSSBytes <= 0 {
-		t.Errorf("RSSBytes = %d, want positive", s.RSSBytes)
+	if s.CPUTotal == 0 {
+		t.Errorf("CPUTotal = %d, want positive", s.CPUTotal)
 	}
 	if s.MemTotalBytes <= 0 {
 		t.Errorf("MemTotalBytes = %d, want positive", s.MemTotalBytes)
+	}
+	if s.MemUsedBytes < 0 || s.MemUsedBytes > s.MemTotalBytes {
+		t.Errorf("MemUsedBytes = %d, want within [0, %d]", s.MemUsedBytes, s.MemTotalBytes)
 	}
 }

@@ -88,11 +88,12 @@ type Server struct {
 	cfg       *ConfigHolder
 	state     *state.State
 	metrics   *metrics.Registry
-	metering  *metering.Store
-	geoip     *geoip.GeoIP
-	netstat   func(iface string) (netstat.Counters, error) // injectable for tests
-	startTime time.Time
-	log       *slog.Logger
+	metering   *metering.Store
+	geoip      *geoip.GeoIP
+	netstat    func(iface string) (netstat.Counters, error) // injectable for tests
+	interfaces func() ([]string, error)                     // injectable for tests
+	startTime  time.Time
+	log        *slog.Logger
 }
 
 // New assembles a Server from its wired dependencies.
@@ -102,10 +103,11 @@ func New(cfg *ConfigHolder, st *state.State, m *metrics.Registry, store *meterin
 		state:     st,
 		metrics:   m,
 		metering:  store,
-		geoip:     g,
-		netstat:   netstat.Read,
-		startTime: time.Now(),
-		log:       log,
+		geoip:      g,
+		netstat:    netstat.Read,
+		interfaces: netstat.Interfaces,
+		startTime:  time.Now(),
+		log:        log,
 	}
 }
 
@@ -120,6 +122,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	mux.HandleFunc("PUT /api/config", s.handlePutConfig)
 	mux.HandleFunc("GET /api/asns", s.handleASNs)
+	mux.HandleFunc("GET /api/interfaces", s.handleInterfaces)
 	mux.HandleFunc("GET /api/history", s.handleHistory)
 	mux.HandleFunc("GET /api/billing", s.handleBilling)
 	mux.HandleFunc("GET /api/audit", s.handleAudit)
@@ -312,6 +315,21 @@ func (s *Server) handleASNs(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// handleInterfaces lists the host's network interfaces (loopback excluded) for
+// the dashboard's interface picker. The empty-string choice ("All") is added
+// client-side, so it is not part of this list.
+func (s *Server) handleInterfaces(w http.ResponseWriter, r *http.Request) {
+	names, err := s.interfaces()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "interfaces: "+err.Error())
+		return
+	}
+	if names == nil {
+		names = []string{}
+	}
+	writeJSON(w, http.StatusOK, names)
 }
 
 func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {

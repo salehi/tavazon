@@ -95,6 +95,10 @@ func (e *Engine) Run(ctx context.Context) error {
 
 	for ctx.Err() == nil {
 		cfg := e.cfg()
+		// Sample host resources every iteration — including while Stopped — so
+		// the dashboard gauges stay live and never depend on a traffic cycle or
+		// a successful network-counter read.
+		e.sampleResources(cfg)
 		if !cfg.General.Running {
 			e.sleep(ctx, stoppedPollInterval)
 			continue
@@ -177,7 +181,6 @@ func (e *Engine) runCycle(ctx context.Context) {
 		e.log.Error("metering sample failed", "err", err)
 	}
 	e.metrics.ObserveCounters(now, e.state.TotalUpload, e.state.TotalDownload)
-	e.sampleResources(cfg, now)
 
 	if err := e.state.Save(); err != nil {
 		e.log.Error("state save failed", "err", err)
@@ -249,11 +252,11 @@ func (e *Engine) workerCount(cfg *config.Config, intensity float64) int {
 	return clamp(slew(e.prevWorkers, target, uc.MaxRamp), 0, uc.MaxWorkers)
 }
 
-// sampleResources records the process CPU/RAM and the link bandwidth use for
-// the dashboard resource panel (docs/project.md §7.11a). It is best-effort: a
-// /proc read failure is logged at debug level and the panel keeps its last
-// values.
-func (e *Engine) sampleResources(cfg *config.Config, now time.Time) {
+// sampleResources records whole-machine CPU/RAM and the upload bandwidth use
+// for the dashboard resource panel (docs/project.md §7.11a). It is best-effort
+// and independent of the network counters: a /proc read failure is logged at
+// debug level and the panel keeps its last values.
+func (e *Engine) sampleResources(cfg *config.Config) {
 	cur, err := e.sysstat()
 	if err != nil {
 		e.log.Debug("sysstat read failed", "err", err)
@@ -264,10 +267,10 @@ func (e *Engine) sampleResources(cfg *config.Config, now time.Time) {
 		res.CPUPct = sysstat.CPUPercent(e.prevSys, cur)
 	}
 	e.prevSys = cur
-	res.RAMUsedBytes = cur.RSSBytes
+	res.RAMUsedBytes = cur.MemUsedBytes
 	res.RAMTotalBytes = cur.MemTotalBytes
 	if cur.MemTotalBytes > 0 {
-		res.RAMPct = float64(cur.RSSBytes) / float64(cur.MemTotalBytes) * 100
+		res.RAMPct = float64(cur.MemUsedBytes) / float64(cur.MemTotalBytes) * 100
 	}
 	res.BandwidthBPS = e.metrics.Snapshot().UploadBPS
 	if cfg.Network.LinkCapacityMbit > 0 {

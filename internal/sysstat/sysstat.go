@@ -1,5 +1,7 @@
-// Package sysstat samples the Tavazon process's CPU and memory use from /proc
-// for the dashboard resource panel. See docs/project.md §7.11a.
+// Package sysstat samples whole-machine CPU and memory use from /proc for the
+// dashboard resource panel. The figures are system-wide (not just this
+// process) so the gauges reflect real load on the host. See docs/project.md
+// §7.11a.
 package sysstat
 
 import (
@@ -7,43 +9,31 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// clockTicksPerSec is the Linux USER_HZ. It is 100 on every mainstream Linux
-// build; hard-coding it avoids a cgo sysconf call.
-const clockTicksPerSec = 100
-
-// Sample is one process resource reading.
+// Sample is one system resource reading. CPUTotal/CPUIdle are cumulative jiffy
+// counters from /proc/stat; CPU use is their delta between two samples.
 type Sample struct {
-	CPUJiffies    uint64
-	RSSBytes      int64
+	CPUTotal      uint64 // sum of every field on the aggregate "cpu" line
+	CPUIdle       uint64 // idle + iowait jiffies
 	MemTotalBytes int64
+	MemUsedBytes  int64 // MemTotal - MemAvailable
 	At            time.Time
 }
 
-// Read takes a process resource sample from /proc. It is Linux-only.
+// Read takes a system resource sample from /proc. It is Linux-only.
 func Read() (Sample, error) {
 	s := Sample{At: time.Now()}
 
-	statData, err := os.ReadFile("/proc/self/stat")
+	statF, err := os.Open("/proc/stat")
 	if err != nil {
-		return Sample{}, fmt.Errorf("sysstat: read /proc/self/stat: %w", err)
+		return Sample{}, fmt.Errorf("sysstat: open /proc/stat: %w", err)
 	}
-	s.CPUJiffies, err = parseStatJiffies(string(statData))
-	if err != nil {
-		return Sample{}, err
-	}
-
-	statusF, err := os.Open("/proc/self/status")
-	if err != nil {
-		return Sample{}, fmt.Errorf("sysstat: open /proc/self/status: %w", err)
-	}
-	s.RSSBytes, err = parseKBLine(statusF, "VmRSS:")
-	statusF.Close()
+	s.CPUTotal, s.CPUIdle, err = parseCPULine(statF)
+	statF.Close()
 	if err != nil {
 		return Sample{}, err
 	}
@@ -52,73 +42,106 @@ func Read() (Sample, error) {
 	if err != nil {
 		return Sample{}, fmt.Errorf("sysstat: open /proc/meminfo: %w", err)
 	}
-	s.MemTotalBytes, err = parseKBLine(memF, "MemTotal:")
+	total, avail, err := parseMeminfo(memF)
 	memF.Close()
 	if err != nil {
 		return Sample{}, err
 	}
+	s.MemTotalBytes = total
+	if used := total - avail; used >= 0 {
+		s.MemUsedBytes = used
+	}
 	return s, nil
 }
 
-// parseStatJiffies extracts utime+stime from a /proc/<pid>/stat line. The comm
-// field may contain spaces and parentheses, so fields are read after the last
-// ')': index 0 is the state, index 11 is utime, index 12 is stime.
-func parseStatJiffies(data string) (uint64, error) {
-	rparen := strings.LastIndexByte(data, ')')
-	if rparen < 0 || rparen+1 >= len(data) {
-		return 0, fmt.Errorf("sysstat: malformed /proc/self/stat")
-	}
-	fields := strings.Fields(data[rparen+1:])
-	if len(fields) < 13 {
-		return 0, fmt.Errorf("sysstat: /proc/self/stat has too few fields")
-	}
-	utime, err := strconv.ParseUint(fields[11], 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("sysstat: utime: %w", err)
-	}
-	stime, err := strconv.ParseUint(fields[12], 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("sysstat: stime: %w", err)
-	}
-	return utime + stime, nil
-}
-
-// parseKBLine returns the bytes value of the first "<prefix> <N> kB" line.
-func parseKBLine(r io.Reader, prefix string) (int64, error) {
+// parseCPULine reads the aggregate "cpu" line of /proc/stat and returns the sum
+// of all its jiffy fields (total) and idle+iowait (idle). The line looks like:
+//
+//	cpu  user nice system idle iowait irq softirq steal guest guest_nice
+func parseCPULine(r io.Reader) (total, idle uint64, err error) {
 	sc := bufio.NewScanner(r)
 	for sc.Scan() {
-		line := sc.Text()
-		if !strings.HasPrefix(line, prefix) {
+		fields := strings.Fields(sc.Text())
+		if len(fields) < 5 || fields[0] != "cpu" {
 			continue
 		}
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			return 0, fmt.Errorf("sysstat: malformed %q line", prefix)
+		for i, f := range fields[1:] {
+			v, perr := strconv.ParseUint(f, 10, 64)
+			if perr != nil {
+				return 0, 0, fmt.Errorf("sysstat: /proc/stat cpu field %d: %w", i, perr)
+			}
+			total += v
+			// fields[1:] index 3 is idle, index 4 is iowait.
+			if i == 3 || i == 4 {
+				idle += v
+			}
 		}
-		kb, err := strconv.ParseInt(fields[1], 10, 64)
-		if err != nil {
-			return 0, fmt.Errorf("sysstat: %q value: %w", prefix, err)
-		}
-		return kb * 1024, nil
+		return total, idle, nil
 	}
 	if err := sc.Err(); err != nil {
-		return 0, fmt.Errorf("sysstat: scan: %w", err)
+		return 0, 0, fmt.Errorf("sysstat: scan /proc/stat: %w", err)
 	}
-	return 0, fmt.Errorf("sysstat: %q not found", prefix)
+	return 0, 0, fmt.Errorf("sysstat: no aggregate cpu line in /proc/stat")
 }
 
-// CPUPercent derives process CPU usage between two samples, as a percentage of
-// one core (so it can exceed 100 only across cores; here it is normalised by
-// NumCPU to a 0..100 whole-machine figure). A backward jiffy count yields 0.
+// parseMeminfo returns MemTotal and MemAvailable in bytes from /proc/meminfo.
+func parseMeminfo(r io.Reader) (total, avail int64, err error) {
+	sc := bufio.NewScanner(r)
+	haveTotal, haveAvail := false, false
+	for sc.Scan() {
+		line := sc.Text()
+		switch {
+		case strings.HasPrefix(line, "MemTotal:"):
+			if total, err = kbValue(line); err != nil {
+				return 0, 0, err
+			}
+			haveTotal = true
+		case strings.HasPrefix(line, "MemAvailable:"):
+			if avail, err = kbValue(line); err != nil {
+				return 0, 0, err
+			}
+			haveAvail = true
+		}
+		if haveTotal && haveAvail {
+			return total, avail, nil
+		}
+	}
+	if err := sc.Err(); err != nil {
+		return 0, 0, fmt.Errorf("sysstat: scan /proc/meminfo: %w", err)
+	}
+	if !haveTotal {
+		return 0, 0, fmt.Errorf("sysstat: MemTotal not found")
+	}
+	// MemAvailable is absent on very old kernels; treat it as zero used-headroom
+	// rather than failing the whole sample.
+	return total, avail, nil
+}
+
+// kbValue parses the bytes value of a "<label> <N> kB" /proc/meminfo line.
+func kbValue(line string) (int64, error) {
+	fields := strings.Fields(line)
+	if len(fields) < 2 {
+		return 0, fmt.Errorf("sysstat: malformed meminfo line %q", line)
+	}
+	kb, err := strconv.ParseInt(fields[1], 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("sysstat: meminfo value %q: %w", fields[1], err)
+	}
+	return kb * 1024, nil
+}
+
+// CPUPercent derives whole-machine CPU utilisation between two samples as the
+// share of non-idle jiffies, on a 0..100 scale. A backward or empty delta
+// (counter reset, identical samples) yields 0.
 func CPUPercent(prev, cur Sample) float64 {
-	dt := cur.At.Sub(prev.At).Seconds()
-	if dt <= 0 || cur.CPUJiffies < prev.CPUJiffies {
+	total := int64(cur.CPUTotal) - int64(prev.CPUTotal)
+	idle := int64(cur.CPUIdle) - int64(prev.CPUIdle)
+	if total <= 0 {
 		return 0
 	}
-	cpuSeconds := float64(cur.CPUJiffies-prev.CPUJiffies) / clockTicksPerSec
-	ncpu := float64(runtime.NumCPU())
-	if ncpu <= 0 {
-		ncpu = 1
+	busy := total - idle
+	if busy < 0 {
+		busy = 0
 	}
-	return cpuSeconds / dt / ncpu * 100
+	return float64(busy) / float64(total) * 100
 }

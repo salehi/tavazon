@@ -60,6 +60,9 @@ func newTestServer(t *testing.T, token string) (*Server, *httptest.Server) {
 	s.netstat = func(string) (netstat.Counters, error) {
 		return netstat.Counters{TxBytes: 5000, RxBytes: 9000}, nil
 	}
+	s.interfaces = func() ([]string, error) {
+		return []string{"eth0", "wlan0"}, nil
+	}
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
 	return s, ts
@@ -103,6 +106,7 @@ func TestRoutes(t *testing.T) {
 		{"GET", "/api/stats", "", true},
 		{"GET", "/api/config", "", true},
 		{"GET", "/api/asns?country=IR", "", true},
+		{"GET", "/api/interfaces", "", true},
 		{"GET", "/api/history", "", true},
 		{"GET", "/api/billing", "", true},
 		{"GET", "/api/audit?n=10", "", true},
@@ -141,6 +145,22 @@ func TestStatsShape(t *testing.T) {
 		if _, ok := s[k]; !ok {
 			t.Errorf("/api/stats missing key %q", k)
 		}
+	}
+}
+
+func TestInterfaces(t *testing.T) {
+	_, ts := newTestServer(t, "")
+	status, body := req(t, "GET", ts.URL+"/api/interfaces", "", "")
+	if status != http.StatusOK {
+		t.Fatalf("/api/interfaces: status %d, want 200 (body %s)", status, body)
+	}
+	var names []string
+	if err := json.Unmarshal(body, &names); err != nil {
+		t.Fatalf("/api/interfaces: body is not a JSON array: %v", err)
+	}
+	want := []string{"eth0", "wlan0"}
+	if len(names) != len(want) || names[0] != want[0] || names[1] != want[1] {
+		t.Errorf("/api/interfaces = %v, want %v", names, want)
 	}
 }
 
