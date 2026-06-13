@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"tavazon/internal/config"
@@ -30,6 +31,11 @@ const bytesPerMbit = 125000
 // general.running while the service is Stopped from the dashboard. It is a var
 // so tests can shorten it.
 var stoppedPollInterval = time.Second
+
+// samplingInterval is how often the sampler refreshes the dashboard's live
+// speed and resource gauges, independent of the traffic cycle. It is a var so
+// tests can shorten it.
+var samplingInterval = 2 * time.Second
 
 // cycleRunner is the slice of the uploader the engine depends on.
 // *uploader.Uploader satisfies it; tests substitute a stub.
@@ -93,12 +99,18 @@ func (e *Engine) Run(ctx context.Context) error {
 	e.log.Info("service started")
 	e.state.PurgeExpired(time.Now())
 
+	// The sampler refreshes the dashboard's live speed and resource gauges on a
+	// fixed cadence, decoupled from the traffic cycle: a single volume-mode
+	// cycle can run for hours, and the gauges must stay live throughout.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		e.runSampler(ctx)
+	}()
+
 	for ctx.Err() == nil {
 		cfg := e.cfg()
-		// Sample host resources every iteration — including while Stopped — so
-		// the dashboard gauges stay live and never depend on a traffic cycle or
-		// a successful network-counter read.
-		e.sampleResources(cfg)
 		if !cfg.General.Running {
 			e.sleep(ctx, stoppedPollInterval)
 			continue
@@ -108,6 +120,7 @@ func (e *Engine) Run(ctx context.Context) error {
 			cfg.General.IntervalMin.Std(), cfg.General.IntervalMax.Std(), e.rng))
 	}
 
+	wg.Wait()
 	e.log.Info("service stopping")
 	if err := e.state.Save(); err != nil {
 		e.log.Error("final state save failed", "err", err)
@@ -180,7 +193,7 @@ func (e *Engine) runCycle(ctx context.Context) {
 	if err := e.metering.Sample(now, e.state.TotalUpload, e.state.TotalDownload); err != nil {
 		e.log.Error("metering sample failed", "err", err)
 	}
-	e.metrics.ObserveCounters(now, e.state.TotalUpload, e.state.TotalDownload)
+	e.metrics.ObserveTracked(e.state.TotalUpload, e.state.TotalDownload)
 
 	if err := e.state.Save(); err != nil {
 		e.log.Error("state save failed", "err", err)
@@ -250,6 +263,47 @@ func (e *Engine) workerCount(cfg *config.Config, intensity float64) int {
 	base := uc.ThreadsCoefficient * 10
 	target := int(intensity * float64(base))
 	return clamp(slew(e.prevWorkers, target, uc.MaxRamp), 0, uc.MaxWorkers)
+}
+
+// runSampler refreshes the dashboard's live metrics — upload/download speed
+// (from the raw counters of the *configured* interface) and the system resource
+// gauges — on a fixed cadence, independent of the traffic cycle. It reads only
+// /proc and the concurrency-safe metrics registry and never mutates engine
+// state, so it runs safely alongside the single state-owning cycle goroutine.
+// Sampling here (not in the cycle) keeps the chart and gauges live even when a
+// single volume-mode cycle runs for hours.
+func (e *Engine) runSampler(ctx context.Context) {
+	t := time.NewTicker(samplingInterval)
+	defer t.Stop()
+	for {
+		e.sample()
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// sample takes one live-metrics reading under recover() so a bad read never
+// kills the sampler goroutine. Speed is measured on the configured interface
+// (cfg.Network.Interface) — the same one selected in the dashboard — so an
+// empty value ("All") sums non-loopback NICs while a named value isolates it.
+func (e *Engine) sample() {
+	defer func() {
+		if r := recover(); r != nil {
+			e.log.Error("sampler panic recovered",
+				"panic", r, "stack", string(debug.Stack()))
+		}
+	}()
+	cfg := e.cfg()
+	if raw, err := e.netstat(cfg.Network.Interface); err != nil {
+		e.log.Debug("sampler netstat read failed",
+			"iface", cfg.Network.Interface, "err", err)
+	} else {
+		e.metrics.ObserveSpeed(time.Now(), raw.TxBytes, raw.RxBytes)
+	}
+	e.sampleResources(cfg)
 }
 
 // sampleResources records whole-machine CPU/RAM and the upload bandwidth use

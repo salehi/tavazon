@@ -57,8 +57,8 @@ type Registry struct {
 	mu             sync.RWMutex
 	upBPS          int64
 	downBPS        int64
-	lastUp         int64
-	lastDown       int64
+	lastTx         uint64
+	lastRx         uint64
 	lastObs        time.Time
 	curveIntensity float64
 	resources      Resources
@@ -99,31 +99,43 @@ func (r *Registry) SetResources(res Resources) {
 	r.mu.Unlock()
 }
 
-// ObserveCounters records the tracked lifetime counters at time now and
-// derives the instantaneous up/down speed from the delta vs the previous call.
-// A backward step (a counter reset) clamps the derived speed to zero.
-func (r *Registry) ObserveCounters(now time.Time, up, down int64) {
+// ObserveTracked records the tracked lifetime upload/download totals. They feed
+// the Σ cards and the Prometheus counters; the engine updates them once per
+// traffic cycle.
+func (r *Registry) ObserveTracked(up, down int64) {
 	r.trackedUpload.Store(up)
 	r.trackedDownload.Store(down)
+}
+
+// ObserveSpeed derives the instantaneous up/down speed from the raw interface
+// byte counters at time now and appends the upload speed to the samples ring.
+// The engine's sampler calls it on a fixed cadence, decoupled from the traffic
+// cycle, so the chart and speed cards stay live even during a long volume-mode
+// cycle. A backward step (a counter reset/reboot) clamps the derived speed to
+// zero.
+func (r *Registry) ObserveSpeed(now time.Time, tx, rx uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if !r.lastObs.IsZero() {
 		if dt := now.Sub(r.lastObs).Seconds(); dt > 0 {
-			r.upBPS = int64(float64(up-r.lastUp) / dt)
-			r.downBPS = int64(float64(down-r.lastDown) / dt)
-			if r.upBPS < 0 {
-				r.upBPS = 0
-			}
-			if r.downBPS < 0 {
-				r.downBPS = 0
-			}
+			r.upBPS = deltaRate(tx, r.lastTx, dt)
+			r.downBPS = deltaRate(rx, r.lastRx, dt)
 		}
 	}
-	r.lastUp, r.lastDown, r.lastObs = up, down, now
+	r.lastTx, r.lastRx, r.lastObs = tx, rx, now
 	r.samples = append(r.samples, r.upBPS)
 	if len(r.samples) > maxSamples {
 		r.samples = append([]int64(nil), r.samples[len(r.samples)-maxSamples:]...)
 	}
+}
+
+// deltaRate returns (cur-prev)/dt as bytes/sec, or 0 if the counter went
+// backwards (a reboot or wrap).
+func deltaRate(cur, prev uint64, dt float64) int64 {
+	if cur < prev {
+		return 0
+	}
+	return int64(float64(cur-prev) / dt)
 }
 
 // Snapshot returns a consistent copy of the current metrics.

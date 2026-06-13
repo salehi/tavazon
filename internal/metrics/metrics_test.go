@@ -25,11 +25,11 @@ func TestAddFakeBytesConcurrent(t *testing.T) {
 	}
 }
 
-func TestObserveCountersBPS(t *testing.T) {
+func TestObserveSpeedBPS(t *testing.T) {
 	r := New()
 	t0 := time.Now()
-	r.ObserveCounters(t0, 1000, 2000)
-	r.ObserveCounters(t0.Add(10*time.Second), 1000+20000, 2000+10000)
+	r.ObserveSpeed(t0, 1000, 2000)
+	r.ObserveSpeed(t0.Add(10*time.Second), 1000+20000, 2000+10000)
 	s := r.Snapshot()
 	if s.UploadBPS != 2000 {
 		t.Errorf("UploadBPS = %d, want 2000", s.UploadBPS)
@@ -37,18 +37,27 @@ func TestObserveCountersBPS(t *testing.T) {
 	if s.DownloadBPS != 1000 {
 		t.Errorf("DownloadBPS = %d, want 1000", s.DownloadBPS)
 	}
-	if s.TrackedUpload != 21000 {
-		t.Errorf("TrackedUpload = %d, want 21000", s.TrackedUpload)
+	if n := len(s.SpeedSamples); n != 2 {
+		t.Errorf("SpeedSamples len = %d, want 2 (one per observation)", n)
 	}
 }
 
-func TestObserveCountersHandlesReset(t *testing.T) {
+func TestObserveSpeedHandlesReset(t *testing.T) {
 	r := New()
 	t0 := time.Now()
-	r.ObserveCounters(t0, 1_000_000, 0)
-	r.ObserveCounters(t0.Add(time.Second), 5, 0) // counter went backwards (reboot)
-	if bps := r.Snapshot().UploadBPS; bps < 0 {
-		t.Errorf("UploadBPS = %d, want clamped to >= 0 on a counter reset", bps)
+	r.ObserveSpeed(t0, 1_000_000, 0)
+	r.ObserveSpeed(t0.Add(time.Second), 5, 0) // counter went backwards (reboot)
+	if bps := r.Snapshot().UploadBPS; bps != 0 {
+		t.Errorf("UploadBPS = %d, want 0 on a counter reset", bps)
+	}
+}
+
+func TestObserveTracked(t *testing.T) {
+	r := New()
+	r.ObserveTracked(21000, 9000)
+	s := r.Snapshot()
+	if s.TrackedUpload != 21000 || s.TrackedDownload != 9000 {
+		t.Errorf("tracked = %d/%d, want 21000/9000", s.TrackedUpload, s.TrackedDownload)
 	}
 }
 

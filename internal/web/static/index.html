@@ -204,6 +204,7 @@ function paintStats(s){
   $("btnDev").className = s.dev.enabled ? "off" : "";
   $("devBanner").style.display = s.dev.enabled ? "block" : "none";
   $("devTarget").textContent = s.dev.target;
+  toggleDevFields(s.dev.enabled);
 
   const r = s.ratio.current, tgt = s.ratio.target;
   const rc = r >= tgt*0.95 ? "var(--green)" : r >= tgt*0.6 ? "var(--yellow)" : "var(--red)";
@@ -384,6 +385,15 @@ function buildForm(){
        ${t==="number"?'step="any"':''}></div>`;
   }).join("");
 }
+// Dev-only settings are hidden unless dev mode is on. Driven from the live
+// /api/stats poll so the fields appear/disappear the moment dev is toggled.
+const DEV_FIELDS = ["dev.target","dev.workers"];
+function toggleDevFields(on){
+  DEV_FIELDS.forEach(p=>{
+    const el = document.querySelector(`[data-path="${p}"]`);
+    if(el) el.closest("div").style.display = on ? "" : "none";
+  });
+}
 function fillForm(){
   FIELDS.forEach(([p,,t])=>{
     const el=document.querySelector(`[data-path="${p}"]`);
@@ -399,6 +409,7 @@ function fillForm(){
     }
     else { el.value = v; }
   });
+  toggleDevFields(!!(CFG.dev && CFG.dev.enabled));
   curveActual = (CFG.curve.anchors||[]).slice();
   curveEdit   = curveActual.slice();
   curveYMax   = Math.max(2.5, Number(CFG.curve.max)||2.5);
