@@ -52,6 +52,8 @@
   input,select{font:inherit;background:var(--panel2);color:var(--fg);border:1px solid var(--line);
     border-radius:5px;padding:6px 8px;width:100%}
   .formgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 14px}
+  .rate{display:flex;gap:6px}
+  .rate select{width:auto;flex:0 0 auto}
   .asnbox{max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:5px;padding:6px;margin-top:4px}
   .asnbox label{display:flex;gap:8px;align-items:center;color:var(--fg);margin:2px 0}
   .asnbox input{width:auto}
@@ -337,6 +339,8 @@ function loadLogs(){
 
 /* ---- settings ---- */
 const GIB = 2**30;  // target.volume.bytes is shown in GB, stored as bytes
+// base_rate_bps is stored as bytes/sec but shown in a selectable binary unit.
+const RATE_UNITS = {"KiB/s":2**10, "MiB/s":2**20, "GiB/s":2**30};
 const FIELDS = [
   ["target.mode","Mode (ratio|volume)","text"],
   ["target.ratio.multiplier","Ratio multiplier","number"],
@@ -347,7 +351,7 @@ const FIELDS = [
   ["network.link_capacity_mbit","Link capacity (Mbit)","number"],
   ["uploader.threads_coefficient","Threads coefficient","number"],
   ["uploader.speed_coefficient","Speed coefficient","number"],
-  ["uploader.base_rate_bps","Base rate (B/s)","number"],
+  ["uploader.base_rate_bps","Base rate","rate"],
   ["uploader.cycle_budget_fraction","Cycle budget fraction","number"],
   ["uploader.packet_gap_max","Packet gap max","text"],
   ["uploader.max_workers","Max workers","number"],
@@ -365,16 +369,31 @@ function setIn(o,path,v){
   t[ks[ks.length-1]]=v;
 }
 function buildForm(){
-  $("cfgForm").innerHTML = FIELDS.map(([p,lbl,t])=>
-    `<div><label>${lbl}</label><input data-path="${p}" type="${t}"
-       ${t==="number"?'step="any"':''}></div>`).join("");
+  $("cfgForm").innerHTML = FIELDS.map(([p,lbl,t])=>{
+    if(t==="rate"){
+      const opts = Object.keys(RATE_UNITS).map(u=>`<option value="${u}">${u}</option>`).join("");
+      return `<div><label>${lbl}</label><span class="rate">
+        <input data-path="${p}" type="number" step="any">
+        <select data-unit="${p}">${opts}</select></span></div>`;
+    }
+    return `<div><label>${lbl}</label><input data-path="${p}" type="${t}"
+       ${t==="number"?'step="any"':''}></div>`;
+  }).join("");
 }
 function fillForm(){
-  FIELDS.forEach(([p])=>{
+  FIELDS.forEach(([p,,t])=>{
     const el=document.querySelector(`[data-path="${p}"]`);
     if(!el) return;
     const v = dig(CFG,p);
-    el.value = p==="target.volume.bytes" ? v/GIB : v;
+    if(p==="target.volume.bytes"){ el.value = v/GIB; }
+    else if(t==="rate"){
+      // pick the largest binary unit that keeps the shown value >= 1
+      const units = Object.entries(RATE_UNITS).sort((a,b)=>b[1]-a[1]);
+      const [u,f] = units.find(([,uf])=>v/uf>=1) || units[units.length-1];
+      document.querySelector(`[data-unit="${p}"]`).value = u;
+      el.value = v/f;
+    }
+    else { el.value = v; }
   });
   curveActual = (CFG.curve.anchors||[]).slice();
   curveEdit   = curveActual.slice();
@@ -480,6 +499,10 @@ $("btnApply").onclick = ()=>{
     const el=document.querySelector(`[data-path="${p}"]`);
     if(!el) return;
     if(p==="target.volume.bytes") setIn(CFG,p, Math.round(Number(el.value)*GIB));
+    else if(t==="rate"){
+      const f = RATE_UNITS[document.querySelector(`[data-unit="${p}"]`).value];
+      setIn(CFG,p, Math.round(Number(el.value)*f));
+    }
     else setIn(CFG,p, t==="number"?Number(el.value):el.value);
   });
   CFG.geoip.selected_asns = [...SEL];
