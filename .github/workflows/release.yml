@@ -66,6 +66,7 @@ jobs:
           mkdir -p "$STAGE"
           cp build/tavazon* "$STAGE"/
           cp README.md LICENSE config.example.json "$STAGE"/
+          cp systemd/tavazon.service "$STAGE"/
           mkdir -p out
           if [ "${{ matrix.goos }}" = windows ]; then
             (cd dist && zip -r "../out/$NAME.zip" "$NAME")

@@ -19,14 +19,15 @@ limits — what it must never be pointed at, and why — are spelled out in
 
 ## Install
 
-One line, on Linux or macOS:
+One line, on a Linux host with systemd:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/salehi/tavazon/main/install.sh | sh
 ```
 
-It downloads the release binary matching your OS and CPU (x86_64 / arm64 /
-armv7) and lays out a self-contained directory at **`/opt/tavazon`**:
+It downloads the release binary matching your CPU (x86_64 / arm64 / armv7), lays
+out a self-contained directory at **`/opt/tavazon`**, installs the systemd unit,
+and enables + starts the service:
 
 ```
 /opt/tavazon/
@@ -36,21 +37,22 @@ armv7) and lays out a self-contained directory at **`/opt/tavazon`**:
   data/                # runtime state, metering, logs
 ```
 
-The script installs **this project only** — it does *not* fetch the GeoLite2
-databases (MaxMind's licence forbids redistributing them). If the `.mmdb` files
-are missing it prints a clear warning; see
+The service is system-wide, so the script needs root and uses `sudo` as needed.
+It installs **this project only** — it does *not* fetch the GeoLite2 databases
+(MaxMind's licence forbids redistributing them). If the `.mmdb` files are
+missing it prints a clear warning and the service still starts, but the uploader
+stays idle until they are provided; see
 [Obtaining the GeoLite2 databases](#obtaining-the-geolite2-databases) below.
 
 Overrides:
 
 ```sh
-curl -fsSL .../install.sh | TAVAZON_DIR=~/tavazon sh    # install somewhere writable (no sudo)
-curl -fsSL .../install.sh | sh -s -- 1.0.0              # pin a version instead of the latest
+curl -fsSL .../install.sh | TAVAZON_DIR=/srv/tavazon sh    # install dir (default /opt/tavazon)
+curl -fsSL .../install.sh | sh -s -- 1.0.0                 # pin a version instead of the latest
 ```
 
-Prefer to install by hand, or on **Windows**? Every release also ships archives
-for all targets on the
-[Releases](https://github.com/salehi/tavazon/releases) page.
+On **macOS or Windows**, or to install by hand, grab the archive for your target
+from the [Releases](https://github.com/salehi/tavazon/releases) page.
 
 ## Obtaining the GeoLite2 databases
 
@@ -70,20 +72,21 @@ They are **not** included — MaxMind's licence forbids redistribution, and
 If the databases are missing Tavazon still starts — the dashboard comes up and
 shows the problem — but the uploader stays idle until they are provided.
 
-## Running with systemd
+## Managing the service
 
-The installer above already populates `/opt/tavazon` — the same path the unit
-expects. After dropping the `.mmdb` files into `/opt/tavazon/maxmind_files/`:
+The installer sets tavazon up as a systemd service. To manage it:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/salehi/tavazon/main/systemd/tavazon.service \
-  | sudo tee /etc/systemd/system/tavazon.service >/dev/null
-sudo systemctl enable --now tavazon
+sudo systemctl status tavazon      # health
+sudo journalctl -u tavazon -f      # live logs
+sudo systemctl restart tavazon     # apply changes after editing /opt/tavazon/config.json
 ```
 
 The unit ([systemd/tavazon.service](systemd/tavazon.service)) runs hardened —
 `NoNewPrivileges`, `ProtectSystem=strict`, `ProtectHome`, with only
-`/opt/tavazon/data` writable — and restarts on failure.
+`/opt/tavazon/data` writable — and restarts on failure. To install it by hand
+(e.g. from a downloaded archive), copy `tavazon.service` to
+`/etc/systemd/system/` and run `sudo systemctl enable --now tavazon`.
 
 ## The dashboard
 
