@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"namizungo/internal/config"
+	"tavazon/internal/config"
 )
 
 // rotatingWriter is an io.Writer that keeps its file open and rotates it once

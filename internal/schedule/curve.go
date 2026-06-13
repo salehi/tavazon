@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"namizungo/internal/config"
+	"tavazon/internal/config"
 )
 
 var tehran = loadTehran()

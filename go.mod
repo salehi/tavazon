@@ -1,4 +1,4 @@
-module namizungo
+module tavazon
 
 go 1.22
 

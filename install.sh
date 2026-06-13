@@ -1,7 +1,7 @@
 #!/bin/sh
 # Tavazon one-line installer (Linux and macOS).
 #
-#   curl -fsSL https://raw.githubusercontent.com/salehi/namizungo/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/salehi/tavazon/main/install.sh | sh
 #
 # It downloads the matching release binary, lays out a self-contained install
 # directory (binary + config + data/ + maxmind_files/), and warns if the
@@ -14,7 +14,7 @@
 #   curl ... | sh -s -- 1.0.0                                      # pin a version (default: latest release)
 set -eu
 
-REPO="salehi/namizungo"
+REPO="salehi/tavazon"
 DIR="${TAVAZON_DIR:-/opt/tavazon}"
 VERSION="${1:-${VERSION:-}}"
 

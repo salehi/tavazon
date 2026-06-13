@@ -22,7 +22,7 @@ limits — what it must never be pointed at, and why — are spelled out in
 One line, on Linux or macOS:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/salehi/namizungo/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/salehi/tavazon/main/install.sh | sh
 ```
 
 It downloads the release binary matching your OS and CPU (x86_64 / arm64 /
@@ -50,7 +50,7 @@ curl -fsSL .../install.sh | sh -s -- 1.0.0              # pin a version instead 
 
 Prefer to install by hand, or on **Windows**? Every release also ships archives
 for all targets on the
-[Releases](https://github.com/salehi/namizungo/releases) page.
+[Releases](https://github.com/salehi/tavazon/releases) page.
 
 ## Obtaining the GeoLite2 databases
 
@@ -76,7 +76,7 @@ The installer above already populates `/opt/tavazon` — the same path the unit
 expects. After dropping the `.mmdb` files into `/opt/tavazon/maxmind_files/`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/salehi/namizungo/main/systemd/tavazon.service \
+curl -fsSL https://raw.githubusercontent.com/salehi/tavazon/main/systemd/tavazon.service \
   | sudo tee /etc/systemd/system/tavazon.service >/dev/null
 sudo systemctl enable --now tavazon
 ```

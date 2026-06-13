@@ -53,7 +53,7 @@ Renaming is a global, mechanical change. Two parts:
 The module is being renamed to a bare local path:
 
 ```
-namizungo
+tavazon
 ```
 
 (A bare name like this works fine for a local/internal project. If the
@@ -64,7 +64,7 @@ fetchable path instead, e.g. `github.com/salehi/namizun-go`.)
 
 ```diff
 -module github.com/salehi/tavazon
-+module namizungo
++module tavazon
 ```
 
 ### Step 2 — rewrite every import
@@ -80,7 +80,7 @@ targets, metering, logging, and their `_test.go` files). Replace the
 prefix in all of them:
 
 ```sh
-sed -i 's#github.com/salehi/tavazon#namizungo#g' $(grep -rl "github.com/salehi/tavazon" --include="*.go" .)
+sed -i 's#github.com/salehi/tavazon#tavazon#g' $(grep -rl "github.com/salehi/tavazon" --include="*.go" .)
 ```
 
 ### Step 3 — verify
@@ -114,5 +114,5 @@ something else — that is a deployment decision, not a code-correctness one.
 | What is it? | This project's own Go module path (declared in `go.mod`). |
 | Can it be deleted? | No — the build breaks without a module path. |
 | Can it be changed? | Yes — rename it in `go.mod` and every import. |
-| New name | `namizungo` |
+| New name | `tavazon` |
 | Does the Docker image name change too? | No, unless you choose to — it is unrelated. |

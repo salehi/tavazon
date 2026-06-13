@@ -8,7 +8,7 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"namizungo/internal/config"
+	"tavazon/internal/config"
 )
 
 // RatioDeficit returns how many bytes of fake upload are needed to keep

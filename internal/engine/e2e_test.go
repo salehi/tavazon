@@ -18,15 +18,15 @@ import (
 	"testing"
 	"time"
 
-	"namizungo/internal/config"
-	"namizungo/internal/geoip"
-	"namizungo/internal/metering"
-	"namizungo/internal/metrics"
-	"namizungo/internal/netstat"
-	"namizungo/internal/schedule"
-	"namizungo/internal/state"
-	"namizungo/internal/targets"
-	"namizungo/internal/uploader"
+	"tavazon/internal/config"
+	"tavazon/internal/geoip"
+	"tavazon/internal/metering"
+	"tavazon/internal/metrics"
+	"tavazon/internal/netstat"
+	"tavazon/internal/schedule"
+	"tavazon/internal/state"
+	"tavazon/internal/targets"
+	"tavazon/internal/uploader"
 )
 
 func TestEndToEnd(t *testing.T) {

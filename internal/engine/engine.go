@@ -13,14 +13,14 @@ import (
 	"runtime/debug"
 	"time"
 
-	"namizungo/internal/config"
-	"namizungo/internal/logging"
-	"namizungo/internal/metering"
-	"namizungo/internal/metrics"
-	"namizungo/internal/netstat"
-	"namizungo/internal/schedule"
-	"namizungo/internal/state"
-	"namizungo/internal/sysstat"
+	"tavazon/internal/config"
+	"tavazon/internal/logging"
+	"tavazon/internal/metering"
+	"tavazon/internal/metrics"
+	"tavazon/internal/netstat"
+	"tavazon/internal/schedule"
+	"tavazon/internal/state"
+	"tavazon/internal/sysstat"
 )
 
 // bytesPerMbit converts a link speed in Mbit/s to bytes/s (1 Mbit = 1e6 bit).

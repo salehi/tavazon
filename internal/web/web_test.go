@@ -13,12 +13,12 @@ import (
 	"testing"
 	"time"
 
-	"namizungo/internal/config"
-	"namizungo/internal/geoip"
-	"namizungo/internal/metering"
-	"namizungo/internal/metrics"
-	"namizungo/internal/netstat"
-	"namizungo/internal/state"
+	"tavazon/internal/config"
+	"tavazon/internal/geoip"
+	"tavazon/internal/metering"
+	"tavazon/internal/metrics"
+	"tavazon/internal/netstat"
+	"tavazon/internal/state"
 )
 
 func discardLogger() *slog.Logger {

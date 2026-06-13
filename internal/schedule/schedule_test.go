@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"namizungo/internal/config"
+	"tavazon/internal/config"
 )
 
 func defaultAnchors() [24]float64 { return config.Default().Curve.Anchors }

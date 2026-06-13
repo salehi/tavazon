@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"namizungo/internal/config"
+	"tavazon/internal/config"
 )
 
 // RandomSize returns a uniformly random datagram size in

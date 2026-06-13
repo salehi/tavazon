@@ -16,17 +16,17 @@ import (
 
 	_ "time/tzdata" // embed zoneinfo (~450 KB) so Asia/Tehran resolves on scratch/distroless
 
-	"namizungo/internal/config"
-	"namizungo/internal/engine"
-	"namizungo/internal/geoip"
-	"namizungo/internal/logging"
-	"namizungo/internal/metering"
-	"namizungo/internal/metrics"
-	"namizungo/internal/schedule"
-	"namizungo/internal/state"
-	"namizungo/internal/targets"
-	"namizungo/internal/uploader"
-	"namizungo/internal/web"
+	"tavazon/internal/config"
+	"tavazon/internal/engine"
+	"tavazon/internal/geoip"
+	"tavazon/internal/logging"
+	"tavazon/internal/metering"
+	"tavazon/internal/metrics"
+	"tavazon/internal/schedule"
+	"tavazon/internal/state"
+	"tavazon/internal/targets"
+	"tavazon/internal/uploader"
+	"tavazon/internal/web"
 )
 
 // version is overridden at build time via -ldflags "-X main.version=...".

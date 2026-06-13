@@ -167,7 +167,7 @@ rewrite should fix:
 | Decision | Choice | Rationale |
 |---|---|---|
 | Language | **Go 1.22+** | Single binary, real concurrency without a GIL, excellent `net` stdlib, easy cross-compile |
-| Module path | `namizungo` | — |
+| Module path | `tavazon` | — |
 | Dependencies | **One, curated & vendored:** `github.com/oschwald/maxminddb-golang` (+ its transitive closure) | Reading MaxMind `.mmdb` is the one thing not worth re-implementing. Everything else is stdlib. The dependency is **vendored** so `go build -mod=vendor` works fully offline behind a censored network. The allowlist is closed — see [RED_LINES.md](RED_LINES.md) X1 |
 | GeoIP source | **MaxMind GeoLite2-ASN + GeoLite2-Country** `.mmdb` | ASN db maps IP↔ASN; Country db lets the dashboard pre-filter the ASN picker to Iran. Files are **operator-supplied and never committed** (MaxMind EULA forbids redistribution) |
 | Config format | **JSON** (`config.json`) | Zero extra dependency; a documented `config.example.json` ships with the repo |
@@ -187,7 +187,7 @@ rewrite should fix:
 
 ```
 tavazon/
-├── go.mod                       # module namizungo, go 1.22
+├── go.mod                       # module tavazon, go 1.22
 ├── go.sum                       # checksums for the one vendored dependency
 ├── vendor/                      # vendored deps — COMMITTED, enables offline build
 ├── README.md                    # user-facing install + usage
@@ -1289,7 +1289,7 @@ interfaces and RX/TX counters.
 
 ### 16.3 Dependencies
 
-`go.mod`: `module namizungo`, `go 1.22`, a **single `require`** —
+`go.mod`: `module tavazon`, `go 1.22`, a **single `require`** —
 `github.com/oschwald/maxminddb-golang` — vendored into `vendor/`. All builds use
 `-mod=vendor` so the build container needs **no network**. Regenerate `vendor/` with
 the `vendor` command above after any `go.mod` change. The dependency allowlist is

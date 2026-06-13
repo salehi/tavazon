@@ -15,7 +15,7 @@ Docker artifacts — a tree that compiles offline in the toolchain container.
 ### 0.1 `go.mod`
 
 ```
-module namizungo
+module tavazon
 
 go 1.22
 

@@ -5,8 +5,8 @@ import (
 	"net"
 	"testing"
 
-	"namizungo/internal/config"
-	"namizungo/internal/geoip"
+	"tavazon/internal/config"
+	"tavazon/internal/geoip"
 )
 
 func mustCIDR(t *testing.T, s string) net.IPNet {
