@@ -1,0 +1,105 @@
+name: release
+
+# Triggered by pushing a tag like `release-1.0.0`.
+# The version baked into the binary is the tag with the `release-` prefix stripped
+# (e.g. `release-1.0.0` -> `1.0.0`). A manual run (workflow_dispatch) builds all
+# artifacts for testing but does not publish a GitHub Release.
+on:
+  push:
+    tags:
+      - 'release-*'
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build ${{ matrix.osname }}/${{ matrix.label }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # linux
+          - { goos: linux,   osname: linux,   goarch: amd64, label: x86_64 }
+          - { goos: linux,   osname: linux,   goarch: arm64, label: arm64 }
+          - { goos: linux,   osname: linux,   goarch: arm,   goarm: '7', label: armv7 }
+          # macOS (darwin) — Go has no 32-bit ARM target for darwin
+          - { goos: darwin,  osname: macos,   goarch: amd64, label: x86_64 }
+          - { goos: darwin,  osname: macos,   goarch: arm64, label: arm64 }
+          # windows
+          - { goos: windows, osname: windows, goarch: amd64, label: x86_64 }
+          - { goos: windows, osname: windows, goarch: arm64, label: arm64 }
+          - { goos: windows, osname: windows, goarch: arm,   goarm: '7', label: armv7 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Resolve version
+        run: echo "VERSION=${GITHUB_REF_NAME#release-}" >> "$GITHUB_ENV"
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          BIN=tavazon
+          [ "$GOOS" = windows ] && BIN=tavazon.exe
+          mkdir -p build
+          go build -trimpath -mod=vendor \
+            -ldflags "-s -w -X main.version=${VERSION}" \
+            -o "build/$BIN" ./cmd/tavazon
+
+      - name: Package
+        run: |
+          set -euo pipefail
+          NAME="tavazon-${VERSION}-${{ matrix.osname }}-${{ matrix.label }}"
+          STAGE="dist/$NAME"
+          mkdir -p "$STAGE"
+          cp build/tavazon* "$STAGE"/
+          cp README.md LICENSE config.example.json "$STAGE"/
+          mkdir -p out
+          if [ "${{ matrix.goos }}" = windows ]; then
+            (cd dist && zip -r "../out/$NAME.zip" "$NAME")
+          else
+            tar -C dist -czf "out/$NAME.tar.gz" "$NAME"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tavazon-${{ env.VERSION }}-${{ matrix.osname }}-${{ matrix.label }}
+          path: out/*
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/release-')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+
+      - name: Checksums
+        run: |
+          set -euo pipefail
+          cd out
+          sha256sum *.tar.gz *.zip > SHA256SUMS.txt
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: out/*
