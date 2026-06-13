@@ -11,7 +11,7 @@ Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 ProtectSystem=strict
-ReadWritePaths=/opt/tavazon/data
+ReadWritePaths=/opt/tavazon
 ProtectHome=true
 
 [Install]
