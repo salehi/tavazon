@@ -13,3 +13,6 @@
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# Project instructions — kept local, never tracked
+/CLAUDE.md
