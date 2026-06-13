@@ -35,25 +35,12 @@ They are **not** included — MaxMind's licence forbids redistribution, and
 If the databases are missing Tavazon still starts — the dashboard comes up and
 shows the problem — but the uploader stays idle until they are provided.
 
-## Running with Docker
-
-```sh
-cp config.example.json config.json     # edit to taste
-docker compose up -d
-```
-
-`docker-compose.yml` uses `network_mode: host` (Tavazon must read the host's
-real `/proc/net/dev` and send from the host's IP) and mounts `./data`,
-`./config.json`, and `./maxmind_files` (read-only). `restart: always` keeps it
-up across reboots; the run state persists, so it resumes Started or Stopped
-exactly as it was left.
-
 ## Running with systemd
 
 ```sh
 sudo mkdir -p /opt/tavazon/data /opt/tavazon/maxmind_files
-# build a binary (see "Building" below) and copy it in:
-sudo cp tavazon-amd64 /opt/tavazon/tavazon
+# download a release binary (or build one — see "Building" below) and copy it in:
+sudo cp tavazon /opt/tavazon/tavazon
 sudo cp config.example.json /opt/tavazon/config.json
 sudo cp maxmind_files/*.mmdb /opt/tavazon/maxmind_files/
 sudo cp systemd/tavazon.service /etc/systemd/system/
@@ -100,25 +87,22 @@ Settings precedence, lowest to highest: **built-in defaults → `config.json` �
 
 ## Building
 
-There is **no Go on the host and no Makefile** — the build runs in a toolchain
-container. Define the helper once locally:
+Prebuilt binaries for **linux, macOS and Windows** across **x86_64, arm64 and
+armv7** are published on the [Releases](https://github.com/salehi/namizungo/releases)
+page. They are built by GitHub Actions
+([.github/workflows/release.yml](.github/workflows/release.yml)) on every tag
+that looks like `release-1.0.0`.
+
+To build locally you need Go 1.22+:
 
 ```sh
-gobox() { docker run --rm -u "$(id -u):$(id -g)" -e GOCACHE=/tmp/gocache \
-  -v "$PWD":/work -w /work golang:1.22 "$@"; }
+go test -race -mod=vendor ./...                       # full suite
+go test -race -mod=vendor -tags e2e ./...             # + e2e smoke test
+CGO_ENABLED=0 go build -mod=vendor -trimpath \
+  -ldflags "-s -w" -o tavazon ./cmd/tavazon           # release binary
 ```
 
-Then:
-
-```sh
-gobox sh -c 'go test -race -mod=vendor ./...'                       # full suite
-gobox sh -c 'go test -race -mod=vendor -tags e2e ./...'             # + e2e smoke test
-gobox sh -c 'CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor \
-  -trimpath -ldflags "-s -w" -o tavazon-amd64 ./cmd/tavazon'        # amd64 release
-gobox sh -c 'CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -mod=vendor \
-  -trimpath -ldflags "-s -w" -o tavazon-arm64 ./cmd/tavazon'        # arm64 release
-```
-
+Cross-compile by setting `GOOS`/`GOARCH` (e.g. `GOOS=linux GOARCH=arm64`).
 Builds are offline: dependencies are vendored under `vendor/`. The full
 contributor workflow is in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md); the
 design rationale is in [docs/project.md](docs/project.md).
