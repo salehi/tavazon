@@ -1,7 +1,7 @@
 # Tavazon — Design Document
 
 > **Tavazon** (Persian: توازن — *balance / equilibrium*) is a ground-up Go rewrite of
-> [namizun](https://github.com/malkemit/namizun). It restores the upload/download
+> [namizun](https://github.com/salehi/namizun). It restores the upload/download
 > *balance* that Iranian hosting providers break with their asymmetric quota policy.
 >
 > This document specifies **every** piece of the project so it can be built from
