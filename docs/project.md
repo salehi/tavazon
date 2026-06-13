@@ -233,7 +233,7 @@ tavazon/
 │   ├── metrics/
 │   │   └── metrics.go           # in-memory counters, snapshot, Prometheus text
 │   ├── sysstat/
-│   │   ├── sysstat.go           # process CPU% + RAM (RSS) + system mem, from /proc
+│   │   ├── sysstat.go           # system CPU% + RAM used%, from /proc/stat + meminfo
 │   │   └── sysstat_test.go      # parses checked-in /proc fixtures
 │   ├── logging/
 │   │   └── logging.go           # slog setup + size-rotating file writer
@@ -774,12 +774,15 @@ CPU / RAM / bandwidth resource block.
 
 ### 7.11a `internal/sysstat`
 
-Process resource sampler feeding the dashboard's resource panel (§10.3) and the
-resource metrics (§11.1). `Read() (Sample, error)` parses `/proc/self/stat` (CPU
-jiffies — `utime+stime`), `/proc/self/status` (`VmRSS`), and `/proc/meminfo`
-(`MemTotal`). CPU% is derived by the caller from two `Sample`s, the elapsed wall
-time, and `runtime.NumCPU()`. Linux-only, like `netstat`; a `parse` helper is split
-out so tests feed fixtures. Stdlib only — no dependency.
+Whole-machine resource sampler feeding the dashboard's resource panel (§10.3) and
+the resource metrics (§11.1). `Read() (Sample, error)` parses `/proc/stat` (the
+aggregate `cpu` line — total and idle+iowait jiffies) and `/proc/meminfo`
+(`MemTotal`, `MemAvailable`). CPU% is derived by the caller from two `Sample`s as
+the share of non-idle jiffies (0..100, system-wide); RAM% is `MemUsed/MemTotal`.
+The engine samples this every loop iteration, independent of the network counters,
+so the gauges stay live even while Stopped or when the configured interface can't
+be read. Linux-only, like `netstat`; `parse` helpers are split out so tests feed
+fixtures. Stdlib only — no dependency.
 
 ### 7.12 `internal/logging`
 
@@ -951,6 +954,7 @@ external monitoring stack; this dashboard *is* the monitoring surface.
 | `GET`  | `/api/config` | Current config as JSON |
 | `PUT`  | `/api/config` | Replace config; validated, applied live, persisted, audited |
 | `GET`  | `/api/asns?country=IR` | List ASNs from the GeoIP db (for the picker) |
+| `GET`  | `/api/interfaces` | List host network interfaces (loopback excluded) for the picker |
 | `GET`  | `/api/history?from=&to=&granularity=` | Time-series for the history charts |
 | `GET`  | `/api/billing` | 95th-percentile rate + total volume for the billing window |
 | `GET`  | `/api/audit?n=100` | Recent config-change audit records |
@@ -1008,9 +1012,9 @@ A single dark-themed page. Sections:
   ⇧ speed, ⇩ speed, active workers, current deficit, live curve intensity.
 - **24-hour traffic chart** — a `<canvas>` line chart of bytes-per-second across the
   day, fed from the per-second ring buffer. Hand-drawn on the canvas; no chart library.
-- **Resource panel** — three hand-drawn `<canvas>` pie/donut gauges for the Tavazon
-  process: **CPU** (% of all cores), **RAM** (RSS as % of system memory), and
-  **Bandwidth** (current up+down as % of `link_capacity`). Each is a pie of
+- **System resources panel** — three hand-drawn `<canvas>` pie/donut gauges for the
+  host: **CPU** (whole-machine utilisation %), **RAM** (used as % of total memory),
+  and **Bandwidth** (current upload as % of `link_capacity`). Each is a pie of
   used-vs-free with the absolute figure printed in the centre, fed from `resources`
   in `/api/stats`. It lets the operator watch the cost of a high `speed_coefficient`.
 - **Billing panel** — the current billing window's **95th-percentile rate** (⇧ and ⇩)
